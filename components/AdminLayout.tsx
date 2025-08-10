@@ -1,10 +1,10 @@
 "use client"
 
 import type React from "react"
-
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { LogOut, BarChart3, Plus, Home } from "lucide-react"
+import { useAuth } from "@/components/auth-provider"
 
 interface AdminLayoutProps {
   children: React.ReactNode
@@ -12,9 +12,10 @@ interface AdminLayoutProps {
 
 export function AdminLayout({ children }: AdminLayoutProps) {
   const router = useRouter()
+  const { user, logout } = useAuth()
 
   const handleLogout = () => {
-    localStorage.removeItem("isAdmin")
+    logout()
     router.push("/")
   }
 

@@ -1,35 +1,56 @@
 "use client"
 
 import type React from "react"
-
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useRouter } from "next/navigation"
 import { Vote, Users, BarChart3 } from "lucide-react"
+import { useAuth } from "@/components/auth-provider"
+import { useToast } from "@/hooks/use-toast"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
+  const { login, isLoading, isAuthenticated } = useAuth()
+  const { toast } = useToast()
+
+  // Redirigir si ya está autenticado
+  useEffect(() => {
+    if (isAuthenticated) {
+      router.push("/admin/dashboard")
+    }
+  }, [isAuthenticated, router])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsLoading(true)
+    
+    if (!email || !password) {
+      toast({
+        title: "Error",
+        description: "Por favor completa todos los campos",
+        variant: "destructive",
+      })
+      return
+    }
 
-    // Simulamos autenticación
-    setTimeout(() => {
-      if (email === "admin@eventos.com" && password === "admin123") {
-        localStorage.setItem("isAdmin", "true")
-        router.push("/admin/dashboard")
-      } else {
-        alert("Credenciales incorrectas. Usa: admin@eventos.com / admin123")
-      }
-      setIsLoading(false)
-    }, 1000)
+    try {
+      await login(email, password)
+      toast({
+        title: "¡Bienvenido!",
+        description: "Has iniciado sesión correctamente",
+      })
+      router.push("/admin/dashboard")
+    } catch (error) {
+      toast({
+        title: "Error de autenticación",
+        description: "Credenciales incorrectas. Verifica tu email y contraseña.",
+        variant: "destructive",
+      })
+    }
   }
 
   return (
