@@ -1,23 +1,65 @@
-import { apiClient, API_ENDPOINTS } from '../config/api';
+import { apiClient, API_ENDPOINTS, API_CONFIG } from '../config/api';
 import { LoginRequest, RegisterRequest, AuthResponse } from '../types/auth.types';
 
 export class AuthService {
   async login(credentials: LoginRequest): Promise<AuthResponse> {
-    const response = await apiClient.post<AuthResponse>(
-      API_ENDPOINTS.AUTH.LOGIN,
-      credentials
-    );
+    console.log('🔐 Login request:', {
+      endpoint: API_ENDPOINTS.AUTH.LOGIN,
+      credentials: credentials,
+      credentialsStringified: JSON.stringify(credentials)
+    });
     
-    // Guardar token en el cliente API
-    apiClient.setToken(response.token);
-    
-    // Guardar token en localStorage
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('auth_token', response.token);
-      localStorage.setItem('user', JSON.stringify(response.user));
+    // Vamos a probar enviando la petición manualmente para debug
+    try {
+      const url = `${API_CONFIG.BASE_URL}${API_ENDPOINTS.AUTH.LOGIN}`;
+      console.log('🌐 Full URL:', url);
+      
+      const requestBody = {
+        email: credentials.email,
+        password: credentials.password
+      };
+      
+      console.log('📤 Request body:', requestBody);
+      
+      const fetchResponse = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify(requestBody)
+      });
+      
+      console.log('📡 Response status:', fetchResponse.status);
+      console.log('📡 Response headers:', Object.fromEntries(fetchResponse.headers.entries()));
+      
+      const responseText = await fetchResponse.text();
+      console.log('📡 Response text:', responseText);
+      
+      if (!fetchResponse.ok) {
+        throw new Error(`HTTP ${fetchResponse.status}: ${responseText}`);
+      }
+      
+      const response = JSON.parse(responseText);
+      console.log('✅ Parsed response:', response);
+      
+      // Guardar token en el cliente API si existe
+      if (response.token) {
+        apiClient.setToken(response.token);
+        
+        // Guardar token en localStorage
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('auth_token', response.token);
+          localStorage.setItem('user', JSON.stringify(response.user));
+        }
+      }
+      
+      return response;
+      
+    } catch (error) {
+      console.error('❌ Login error:', error);
+      throw error;
     }
-    
-    return response;
   }
 
   async register(userData: RegisterRequest): Promise<AuthResponse> {

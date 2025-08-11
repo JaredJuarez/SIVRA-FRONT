@@ -66,6 +66,16 @@ export class ApiClient {
   ): Promise<T> {
     const url = `${this.baseURL}${endpoint}`;
     
+    console.log('🌐 API Request:', {
+      url,
+      method: options.method || 'GET',
+      headers: {
+        ...getAuthHeaders(this.token),
+        ...options.headers,
+      },
+      body: options.body
+    });
+    
     const response = await fetch(url, {
       ...options,
       headers: {
@@ -74,8 +84,16 @@ export class ApiClient {
       },
     });
 
+    console.log('📡 API Response:', {
+      status: response.status,
+      statusText: response.statusText,
+      url: response.url
+    });
+
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      const errorText = await response.text();
+      console.error('❌ API Error:', errorText);
+      throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
     }
 
     return response.json();

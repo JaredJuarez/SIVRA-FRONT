@@ -20,7 +20,9 @@ export default function LoginPage() {
 
   // Redirigir si ya está autenticado
   useEffect(() => {
+    console.log('🏠 Login Page: Auth state changed:', { isAuthenticated });
     if (isAuthenticated) {
+      console.log('✈️ Login Page: Redirecting to dashboard...');
       router.push("/admin/dashboard")
     }
   }, [isAuthenticated, router])
@@ -38,11 +40,14 @@ export default function LoginPage() {
     }
 
     try {
+      console.log('🚀 Login Page: Starting login process...');
       await login(email, password)
+      console.log('✅ Login Page: Login successful, showing toast...');
       toast({
         title: "¡Bienvenido!",
         description: "Has iniciado sesión correctamente",
       })
+      console.log('📍 Login Page: Attempting manual redirect...');
       router.push("/admin/dashboard")
     } catch (error) {
       toast({

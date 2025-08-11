@@ -33,12 +33,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     try {
+      console.log('🔄 AuthProvider: Starting login...');
       const response = await authService.login({ email, password });
+      console.log('✅ AuthProvider: Login response:', response);
+      console.log('👤 AuthProvider: User from response:', response.user);
       setUser(response.user);
+      console.log('🎯 AuthProvider: User state set to:', response.user);
     } catch (error) {
+      console.error('❌ AuthProvider: Login error:', error);
       throw error;
     } finally {
       setIsLoading(false);
+      console.log('⏹️ AuthProvider: Login process finished');
     }
   };
 
@@ -59,10 +65,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
   };
 
+  const isAuthenticated = !!user;
+  
+  // Debug: monitorear cambios en el estado de autenticación
+  useEffect(() => {
+    console.log('🔐 AuthProvider: Authentication state changed:', {
+      user,
+      isAuthenticated,
+      userExists: !!user
+    });
+  }, [user, isAuthenticated]);
+
   const value = {
     user,
     isLoading,
-    isAuthenticated: !!user,
+    isAuthenticated,
     login,
     register,
     logout,
