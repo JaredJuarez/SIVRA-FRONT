@@ -43,18 +43,36 @@ export class AuthService {
       const response = JSON.parse(responseText);
       console.log('✅ Parsed response:', response);
       
+      // Ajustar la estructura de respuesta del backend
+      // El backend devuelve: { message, data: { token, role }, error, status }
+      // Necesitamos adaptarlo a: { user, token }
+      const adaptedResponse = {
+        token: response.data?.token,
+        user: {
+          id: '1', // Por ahora hardcodeado, después ajustar según backend
+          email: credentials.email,
+          name: 'Admin User', // Por ahora hardcodeado
+          role: response.data?.role?.toLowerCase() || 'admin'
+        }
+      };
+      
+      console.log('🔄 Adapted response:', adaptedResponse);
+      
       // Guardar token en el cliente API si existe
-      if (response.token) {
-        apiClient.setToken(response.token);
+      if (adaptedResponse.token) {
+        apiClient.setToken(adaptedResponse.token);
         
-        // Guardar token en localStorage
+        // Guardar token en localStorage Y en cookies
         if (typeof window !== 'undefined') {
-          localStorage.setItem('auth_token', response.token);
-          localStorage.setItem('user', JSON.stringify(response.user));
+          localStorage.setItem('auth_token', adaptedResponse.token);
+          localStorage.setItem('user', JSON.stringify(adaptedResponse.user));
+          
+          // También guardar en cookies para el middleware
+          document.cookie = `auth_token=${adaptedResponse.token}; path=/; max-age=${7 * 24 * 60 * 60}`; // 7 días
         }
       }
       
-      return response;
+      return adaptedResponse;
       
     } catch (error) {
       console.error('❌ Login error:', error);
@@ -86,6 +104,9 @@ export class AuthService {
     if (typeof window !== 'undefined') {
       localStorage.removeItem('auth_token');
       localStorage.removeItem('user');
+      
+      // También eliminar la cookie
+      document.cookie = 'auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
     }
   }
 

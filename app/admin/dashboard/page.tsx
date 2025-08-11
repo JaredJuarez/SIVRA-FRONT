@@ -30,7 +30,10 @@ export default function AdminDashboard() {
   const loadForms = async () => {
     try {
       const formsData = await formService.getForms()
-      setForms(formsData)
+      console.log('📋 Dashboard: Forms data received:', formsData)
+      // Asegurar que formsData sea un array
+      const formsArray = Array.isArray(formsData) ? formsData : []
+      setForms(formsArray)
     } catch (error) {
       // En caso de error, usar datos mock temporalmente
       console.log("Error loading forms, using mock data:", error)
@@ -104,7 +107,7 @@ export default function AdminDashboard() {
               <FileText className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{forms.length}</div>
+              <div className="text-2xl font-bold">{Array.isArray(forms) ? forms.length : 0}</div>
             </CardContent>
           </Card>
 
@@ -115,7 +118,7 @@ export default function AdminDashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {forms.reduce((sum, form) => sum + (form.questions?.length || 0), 0)}
+                {Array.isArray(forms) ? forms.reduce((sum, form) => sum + (form.questions?.length || 0), 0) : 0}
               </div>
             </CardContent>
           </Card>
@@ -127,7 +130,7 @@ export default function AdminDashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-green-600">
-                {forms.length} {/* Por ahora todos son activos */}
+                {Array.isArray(forms) ? forms.length : 0} {/* Por ahora todos son activos */}
               </div>
             </CardContent>
           </Card>
@@ -137,7 +140,7 @@ export default function AdminDashboard() {
         <div className="mb-6">
           <h2 className="text-xl font-semibold mb-4">Mis Formularios</h2>
           
-          {forms.length === 0 ? (
+          {!Array.isArray(forms) || forms.length === 0 ? (
             <Card>
               <CardContent className="text-center py-8">
                 <FileText className="w-16 h-16 mx-auto text-gray-400 mb-4" />
@@ -155,7 +158,7 @@ export default function AdminDashboard() {
             </Card>
           ) : (
             <div className="grid gap-4">
-              {forms.map((form) => (
+              {Array.isArray(forms) && forms.map((form) => (
                 <Card key={form.id}>
                   <CardHeader>
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
