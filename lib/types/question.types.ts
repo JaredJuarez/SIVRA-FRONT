@@ -1,25 +1,27 @@
 import { Option } from './option.types';
 
+export type QuestionType = 'SINGLE_CHOICE' | 'MULTIPLE_CHOICE' | 'TEXT';
+
 export interface Question {
   id: string;
   formId: string;
-  title: string;
-  type: 'single' | 'multiple' | 'text';
+  text: string;
+  type: QuestionType;
   required: boolean;
   order: number;
-  options: Option[];
+  options?: Option[];
 }
 
 export interface CreateQuestionRequest {
-  title: string;
-  type: 'single' | 'multiple' | 'text';
+  text: string;
+  type: QuestionType;
   required: boolean;
   order: number;
 }
 
 export interface UpdateQuestionRequest {
-  title?: string;
-  type?: 'single' | 'multiple' | 'text';
+  text?: string;
+  type?: QuestionType;
   required?: boolean;
   order?: number;
 }

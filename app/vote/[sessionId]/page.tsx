@@ -217,14 +217,14 @@ export default function VoteSession() {
                     <span className="bg-blue-100 text-blue-800 text-sm font-medium px-2.5 py-0.5 rounded-full">
                       {index + 1}
                     </span>
-                    {question.title}
+                    {question.text}
                     {question.required && (
                       <span className="text-red-500">*</span>
                     )}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {question.type === 'single' ? (
+                  {question.type === 'SINGLE_CHOICE' ? (
                     <RadioGroup
                       value={responses[question.id] as string || ""}
                       onValueChange={(value) => handleResponseChange(question.id, value)}
@@ -238,7 +238,7 @@ export default function VoteSession() {
                         </div>
                       ))}
                     </RadioGroup>
-                  ) : question.type === 'multiple' ? (
+                  ) : question.type === 'MULTIPLE_CHOICE' ? (
                     <div className="space-y-3">
                       {question.options?.map((option) => (
                         <div key={option.id} className="flex items-center space-x-2">
@@ -260,7 +260,7 @@ export default function VoteSession() {
                         </div>
                       ))}
                     </div>
-                  ) : question.type === 'text' ? (
+                  ) : question.type === 'TEXT' ? (
                     <div className="space-y-3">
                       <p className="text-gray-600">Pregunta de texto libre</p>
                       <textarea 
