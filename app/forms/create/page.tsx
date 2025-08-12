@@ -56,15 +56,32 @@ export default function CreateForm() {
         description: "El formulario se ha creado correctamente",
       })
       
-      // Redirigir al dashboard o a la página de edición del formulario
+      // Redirigir al dashboard
       router.push("/admin/dashboard")
     } catch (error) {
       console.error('❌ Form creation failed:', error);
-      toast({
-        title: "Error",
-        description: "No se pudo crear el formulario. Intenta nuevamente.",
-        variant: "destructive",
-      })
+      
+      // WORKAROUND: Si el error es por 400 del backend, pero sabemos que a veces se crea de todas formas
+      // Vamos a esperar un momento y luego redirigir al dashboard para que el usuario vea si se creó
+      if (error instanceof Error && error.message.includes('Error al crear formulario')) {
+        console.log('⚠️ Frontend: Handling backend 400 error - redirecting to dashboard to check if form was created');
+        
+        toast({
+          title: "Verificando creación...",
+          description: "Verificando si el formulario se creó correctamente",
+        })
+        
+        // Esperar un momento para que el backend procese
+        setTimeout(() => {
+          router.push("/admin/dashboard")
+        }, 1500)
+      } else {
+        toast({
+          title: "Error",
+          description: "No se pudo crear el formulario. Intenta nuevamente.",
+          variant: "destructive",
+        })
+      }
     } finally {
       setIsLoading(false)
     }

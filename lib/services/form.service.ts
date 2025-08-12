@@ -4,15 +4,26 @@ import { Form, CreateFormRequest, UpdateFormRequest, FormResponse } from '../typ
 export class FormService {
   // Función para formatear fechas desde el backend de Java
   private formatDateFromJava(dateString: string | null | undefined): string | undefined {
-    if (!dateString) return undefined;
+    if (!dateString) {
+      console.log('📋 No date string provided:', dateString);
+      return undefined;
+    }
+    
+    console.log('📋 Original date string from backend:', dateString, 'Type:', typeof dateString);
+    
     try {
       // Si viene en formato ISO o similar, crear Date y formatear
       const date = new Date(dateString);
+      console.log('📋 Parsed date object:', date, 'Valid:', !isNaN(date.getTime()));
+      
       if (isNaN(date.getTime())) {
         console.warn('📋 Invalid date received:', dateString);
         return undefined;
       }
-      return date.toISOString();
+      
+      const isoString = date.toISOString();
+      console.log('📋 Converted to ISO string:', isoString);
+      return isoString;
     } catch (error) {
       console.warn('📋 Error parsing date:', dateString, error);
       return undefined;
@@ -128,32 +139,36 @@ export class FormService {
     } catch (error) {
       console.error('❌ FormService: Error creating form:', error);
       
-      // WORKAROUND: Si el backend devuelve 400 pero sabemos que a veces crea el formulario de todas formas,
-      // vamos a intentar obtener la lista de formularios para verificar si se creó
+      // WORKAROUND mejorado: Si el backend devuelve 400, aún intentamos verificar si se creó
       if (error instanceof Error && error.message.includes('HTTP error! status: 400')) {
-        console.log('⚠️ FormService: Got 400 error, checking if form was actually created...');
+        console.log('⚠️ FormService: Got 400 error, attempting workaround...');
         
         try {
           // Esperar un momento para que el backend procese
-          await new Promise(resolve => setTimeout(resolve, 1000));
+          await new Promise(resolve => setTimeout(resolve, 2000));
           
-          // Obtener la lista de formularios para ver si se creó
+          // Obtener la lista actualizada de formularios
           const forms = await this.getForms();
+          console.log('📋 FormService: Current forms after 400 error:', forms);
           
-          // Buscar el formulario recién creado por título (asumiendo que es único)
-          const createdForm = forms.find(form => 
-            form.title === javaFormattedData.title && 
-            form.description === javaFormattedData.description
-          );
+          // Buscar el formulario más reciente que coincida con el título
+          const recentForm = forms
+            .filter(form => form.title === javaFormattedData.title && form.description === javaFormattedData.description)
+            .sort((a, b) => {
+              // Ordenar por fecha de creación (más reciente primero)
+              const dateA = a.created ? new Date(a.created).getTime() : 0;
+              const dateB = b.created ? new Date(b.created).getTime() : 0;
+              return dateB - dateA;
+            })[0];
           
-          if (createdForm) {
-            console.log('✅ FormService: Form was actually created despite 400 error!', createdForm);
-            return createdForm;
+          if (recentForm) {
+            console.log('✅ FormService: Found recently created form despite 400 error!', recentForm);
+            return recentForm;
           } else {
             console.log('❌ FormService: Form was not found after 400 error');
           }
         } catch (listError) {
-          console.error('❌ FormService: Error checking if form was created:', listError);
+          console.error('❌ FormService: Error in workaround:', listError);
         }
       }
       

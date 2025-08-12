@@ -23,13 +23,35 @@ export default function FormDetails() {
   const [form, setForm] = useState<Form | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
+  // Función helper para formatear fechas
+  const formatDate = (dateString: string | undefined): string => {
+    if (!dateString) return "Fecha no disponible"
+    
+    try {
+      const date = new Date(dateString)
+      if (isNaN(date.getTime())) {
+        console.warn('Invalid date string:', dateString)
+        return "Fecha inválida"
+      }
+      
+      return date.toLocaleDateString('es-ES', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      })
+    } catch (error) {
+      console.error('Error formatting date:', dateString, error)
+      return "Error en fecha"
+    }
+  }
+
   useEffect(() => {
     loadForm()
   }, [formId])
 
   const loadForm = async () => {
     try {
-      const formData = await formService.getFormById(formId)
+      const formData = await formService.getForm(formId)
       setForm(formData)
     } catch (error) {
       toast({
@@ -175,7 +197,7 @@ export default function FormDetails() {
                 <div>
                   <span className="font-medium text-gray-500">Fecha de creación:</span>
                   <span className="ml-2">
-                    {new Date(form.createdAt).toLocaleDateString()}
+                    {formatDate(form.created)}
                   </span>
                 </div>
               </div>

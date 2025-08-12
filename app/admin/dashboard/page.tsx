@@ -21,6 +21,28 @@ export default function AdminDashboard() {
   const { user, isAuthenticated } = useAuth()
   const { toast } = useToast()
 
+  // Función helper para formatear fechas
+  const formatDate = (dateString: string | undefined): string => {
+    if (!dateString) return "Fecha no disponible"
+    
+    try {
+      const date = new Date(dateString)
+      if (isNaN(date.getTime())) {
+        console.warn('Invalid date string:', dateString)
+        return "Fecha inválida"
+      }
+      
+      return date.toLocaleDateString('es-ES', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      })
+    } catch (error) {
+      console.error('Error formatting date:', dateString, error)
+      return "Error en fecha"
+    }
+  }
+
   useEffect(() => {
     if (isAuthenticated) {
       loadForms()
@@ -31,6 +53,18 @@ export default function AdminDashboard() {
     try {
       const formsData = await formService.getForms()
       console.log('📋 Dashboard: Forms data received:', formsData)
+      
+      // Debug: verificar las fechas de cada formulario
+      formsData.forEach((form, index) => {
+        console.log(`📋 Form ${index}:`, {
+          id: form.id,
+          title: form.title,
+          created: form.created,
+          createdType: typeof form.created,
+          parsedDate: form.created ? new Date(form.created) : null
+        })
+      })
+      
       // Asegurar que formsData sea un array
       const formsArray = Array.isArray(formsData) ? formsData : []
       setForms(formsArray)
@@ -172,7 +206,7 @@ export default function AdminDashboard() {
                         </CardDescription>
                         <div className="text-sm text-gray-500 mt-2">
                           {form.questions?.length || 0} pregunta{(form.questions?.length || 0) !== 1 ? "s" : ""} • 
-                          Creado el {new Date(form.createdAt).toLocaleDateString()}
+                          Creado el {formatDate(form.created)}
                         </div>
                       </div>
                       <div className="flex flex-wrap gap-2">
