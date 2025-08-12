@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { AdminLayout } from "@/components/AdminLayout"
 import { ArrowLeft, Plus } from "lucide-react"
 import { formService } from "@/lib/services/form.service"
@@ -20,7 +21,8 @@ export default function CreateForm() {
   const [isLoading, setIsLoading] = useState(false)
   const [formData, setFormData] = useState({
     title: "",
-    description: ""
+    description: "",
+    type: "SURVEY" // Valor por defecto - vamos a probar ENCUESTA también
   })
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -35,13 +37,19 @@ export default function CreateForm() {
       return
     }
 
+    console.log('🚀 Form submission started');
+    console.log('📝 Form data to submit:', formData);
+
     setIsLoading(true)
     
     try {
       const newForm = await formService.createForm({
         title: formData.title,
-        description: formData.description || undefined
+        description: formData.description,
+        type: formData.type
       })
+      
+      console.log('✅ Form created successfully:', newForm);
       
       toast({
         title: "¡Formulario creado!",
@@ -51,6 +59,7 @@ export default function CreateForm() {
       // Redirigir al dashboard o a la página de edición del formulario
       router.push("/admin/dashboard")
     } catch (error) {
+      console.error('❌ Form creation failed:', error);
       toast({
         title: "Error",
         description: "No se pudo crear el formulario. Intenta nuevamente.",
@@ -121,6 +130,26 @@ export default function CreateForm() {
                     onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                     rows={4}
                   />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="type">
+                    Tipo de Formulario *
+                  </Label>
+                  <Select
+                    value={formData.type}
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, type: value }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecciona el tipo de formulario" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="SURVEY">Encuesta</SelectItem>
+                      <SelectItem value="VOTE">Votación</SelectItem>
+                      <SelectItem value="POLL">Sondeo</SelectItem>
+                      <SelectItem value="EVALUATION">Evaluación</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="flex gap-4 pt-4">

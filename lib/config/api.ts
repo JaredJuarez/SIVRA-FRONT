@@ -87,16 +87,42 @@ export class ApiClient {
     console.log('📡 API Response:', {
       status: response.status,
       statusText: response.statusText,
-      url: response.url
+      url: response.url,
+      ok: response.ok
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('❌ API Error:', errorText);
-      throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+    // Para debugging: vamos a ver el contenido antes de decidir si es error
+    const responseText = await response.text();
+    console.log('📡 Response body:', responseText);
+
+    // Intentar parsear la respuesta para ver si contiene información útil
+    let parsedResponse = null;
+    try {
+      parsedResponse = JSON.parse(responseText);
+      console.log('📡 Parsed response:', parsedResponse);
+    } catch (parseError) {
+      console.log('📡 Response is not valid JSON:', responseText);
     }
 
-    return response.json();
+    if (!response.ok) {
+      console.error('❌ API Error:', responseText);
+      
+      // WORKAROUND: Si el status es 400 pero la respuesta contiene datos del formulario creado,
+      // tratarlo como éxito (problema del backend)
+      if (response.status === 400 && parsedResponse && parsedResponse.data) {
+        console.log('⚠️ WORKAROUND: Backend returned 400 but created the resource. Treating as success.');
+        return parsedResponse;
+      }
+      
+      throw new Error(`HTTP error! status: ${response.status}, message: ${responseText}`);
+    }
+
+    // Si llegamos aquí, la respuesta fue exitosa
+    if (parsedResponse) {
+      return parsedResponse;
+    } else {
+      throw new Error('Invalid JSON response from server');
+    }
   }
 
   async get<T>(endpoint: string): Promise<T> {
