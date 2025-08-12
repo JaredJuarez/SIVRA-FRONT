@@ -23,24 +23,58 @@ export default function AdminDashboard() {
 
   // Función helper para formatear fechas
   const formatDate = (dateString: string | undefined): string => {
-    if (!dateString) return "Fecha no disponible"
+    console.log('🗓️ Dashboard formatDate input:', dateString, 'Type:', typeof dateString);
+    
+    if (!dateString) {
+      console.log('🗓️ No date string provided - showing fallback');
+      return "Fecha no disponible"
+    }
     
     try {
-      const date = new Date(dateString)
+      // Intentar diferentes formatos de fecha que puede enviar Java
+      let date: Date;
+      
+      // Si es un timestamp numérico
+      if (!isNaN(Number(dateString))) {
+        date = new Date(Number(dateString));
+      } 
+      // Si es una cadena de fecha
+      else if (typeof dateString === 'string') {
+        // Manejar formatos comunes de Java: "yyyy-MM-dd HH:mm:ss.SSSSSS" o ISO
+        date = new Date(dateString);
+      } else {
+        console.warn('🗓️ Unknown date format:', dateString);
+        return "Formato inválido"
+      }
+      
+      console.log('🗓️ Parsed date object:', date, 'Valid:', !isNaN(date.getTime()));
+      
       if (isNaN(date.getTime())) {
-        console.warn('Invalid date string:', dateString)
+        console.warn('🗓️ Invalid date result:', dateString);
         return "Fecha inválida"
       }
       
-      return date.toLocaleDateString('es-ES', {
+      const formatted = date.toLocaleDateString('es-ES', {
         year: 'numeric',
         month: 'short',
         day: 'numeric'
-      })
+      });
+      
+      console.log('🗓️ Formatted date:', formatted);
+      return formatted;
     } catch (error) {
-      console.error('Error formatting date:', dateString, error)
+      console.error('🗓️ Error formatting date:', dateString, error);
       return "Error en fecha"
     }
+  }
+
+  // Función para mostrar información de fecha más útil
+  const getFormDateInfo = (form: Form): string => {
+    // Si no hay fecha de creación, mostrar el ID como referencia temporal
+    if (!form.created) {
+      return `ID: ${form.id}`
+    }
+    return `Creado el ${formatDate(form.created)}`
   }
 
   useEffect(() => {
@@ -50,30 +84,38 @@ export default function AdminDashboard() {
   }, [isAuthenticated])
 
   const loadForms = async () => {
+    console.log('🔄 Dashboard: Starting to load forms...');
     try {
       const formsData = await formService.getForms()
       console.log('📋 Dashboard: Forms data received:', formsData)
+      console.log('📋 Dashboard: Forms data type:', typeof formsData, 'Is array:', Array.isArray(formsData))
       
       // Debug: verificar las fechas de cada formulario
-      formsData.forEach((form, index) => {
-        console.log(`📋 Form ${index}:`, {
-          id: form.id,
-          title: form.title,
-          created: form.created,
-          createdType: typeof form.created,
-          parsedDate: form.created ? new Date(form.created) : null
+      if (Array.isArray(formsData)) {
+        formsData.forEach((form, index) => {
+          console.log(`📋 Form ${index}:`, {
+            id: form.id,
+            title: form.title,
+            created: form.created,
+            createdType: typeof form.created,
+            createdValue: JSON.stringify(form.created),
+            parsedDate: form.created ? new Date(form.created) : null,
+            fullForm: form
+          })
         })
-      })
+      }
       
       // Asegurar que formsData sea un array
       const formsArray = Array.isArray(formsData) ? formsData : []
+      console.log('📋 Dashboard: Setting forms array with length:', formsArray.length);
       setForms(formsArray)
     } catch (error) {
       // En caso de error, usar datos mock temporalmente
-      console.log("Error loading forms, using mock data:", error)
+      console.log("❌ Dashboard: Error loading forms:", error)
       setForms([])
     } finally {
       setIsLoading(false)
+      console.log('✅ Dashboard: Load forms completed');
     }
   }
 
@@ -206,7 +248,7 @@ export default function AdminDashboard() {
                         </CardDescription>
                         <div className="text-sm text-gray-500 mt-2">
                           {form.questions?.length || 0} pregunta{(form.questions?.length || 0) !== 1 ? "s" : ""} • 
-                          Creado el {formatDate(form.created)}
+                          {getFormDateInfo(form)}
                         </div>
                       </div>
                       <div className="flex flex-wrap gap-2">
