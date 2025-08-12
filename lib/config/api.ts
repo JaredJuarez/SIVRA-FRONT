@@ -1,6 +1,6 @@
 // Configuración base para la API
 export const API_CONFIG = {
-  BASE_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080',
+  BASE_URL: process.env.NEXT_PUBLIC_API_URL || 'http://192.168.0.30:8080',
   TIMEOUT: 30000,
 };
 
@@ -20,14 +20,18 @@ export const API_ENDPOINTS = {
   
   // Questions
   QUESTIONS: {
+    BASE: '/api/question',
     CREATE: (formId: string) => `/api/question/form/${formId}`,
     BY_ID: (id: string) => `/api/question/${id}`,
+    BY_FORM: (formId: string) => `/api/question/form/${formId}`,
   },
   
   // Options
   OPTIONS: {
+    BASE: '/api/option',
     CREATE: (questionId: string) => `/api/option/question/${questionId}`,
     BY_ID: (id: string) => `/api/option/${id}`,
+    BY_QUESTION: (questionId: string) => `/api/option/question/${questionId}`,
   },
   
   // Responses
