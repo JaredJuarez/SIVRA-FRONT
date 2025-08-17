@@ -1,6 +1,5 @@
 # SIVRA - Sistema Interactivo de Votación en Tiempo Real
 
-![SIVRA Logo](./public/placeholder-logo.svg)
 
 SIVRA es una aplicación web moderna desarrollada en **Next.js** que permite crear, gestionar y participar en sesiones de votación y encuestas en tiempo real. Diseñada para ser intuitiva y accesible, facilita la recolección de opiniones en eventos, reuniones, conferencias y más.
 
