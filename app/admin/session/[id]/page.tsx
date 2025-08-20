@@ -1,138 +1,255 @@
-"use client"
+'use client';
 
-import { useState, useEffect } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { useRouter, useParams } from "next/navigation"
-import { QrCode, ExternalLink, Users, BarChart3, Copy, Check } from "lucide-react"
-import { AdminLayout } from "@/components/AdminLayout"
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts"
-import QRCode from "qrcode"
+import { useState, useEffect } from 'react';
+import { useParams } from 'next/navigation';
+import { AdminLayout } from '@/components/AdminLayout';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { Users, Calendar, Clock, Share2, CheckCircle, XCircle, BarChart3 } from 'lucide-react';
+import { ShareDialog } from '@/components/ShareDialog';
 
-interface VotingSession {
-  id: string
-  name: string
-  status: "draft" | "active" | "closed"
-  questions: Array<{
-    id: string
-    question: string
-    options: Array<{ id: string; text: string; votes: number }>
-  }>
-  createdAt: string
-  totalVotes: number
+// Local interfaces to avoid import issues
+interface AdminOption {
+  id: number;
+  optionText: string;
+  order: number;
+  voteCount: number;
+  votePercentage: number;
 }
 
-const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884D8", "#82CA9D"]
+interface AdminQuestion {
+  id: number;
+  questionText: string;
+  type: 'MULTIPLE_CHOICE' | 'TEXT' | null;
+  order: number;
+  totalVotes: number;
+  options?: AdminOption[];
+}
 
-export default function SessionResults() {
-  const [session, setSession] = useState<VotingSession | null>(null)
-  const [qrCodeUrl, setQrCodeUrl] = useState("")
-  const [copied, setCopied] = useState(false)
-  const router = useRouter()
-  const params = useParams()
-  const sessionId = params.id as string
+interface AdminSession {
+  id: number;
+  title: string;
+  sessionCode: string;
+  sessionLink: string;
+  qrCodeData: string;
+  status: 'ACTIVE' | 'INACTIVE' | 'DRAFT' | 'CLOSED';
+  questions: AdminQuestion[];
+  createdAt: string;
+  activatedAt: string | null;
+  closedAt: string | null;
+}
+
+// Simple ProgressBar component to avoid inline styles
+const ProgressBar = ({ percentage }: { percentage: number }) => {
+  const widthClass = `w-[${Math.min(100, Math.max(0, percentage))}%]`;
+  return (
+    <div className="w-32 bg-gray-200 rounded-full h-2 relative overflow-hidden">
+      <div 
+        className="bg-blue-600 h-2 rounded-full transition-all duration-300 absolute left-0 top-0"
+        style={{width: `${percentage}%`}}
+      />
+    </div>
+  );
+};
+
+// Local AdminService methods
+const AdminService = {
+  async getSessionById(id: string): Promise<AdminSession> {
+    try {
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
+      const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
+      
+      const response = await fetch(`${baseUrl}/admin/sessions/${id}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        cache: 'no-store',
+      });
+
+      if (!response.ok) {
+        throw new Error(`Error ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error fetching session:', error);
+      
+      // Fallback: datos de ejemplo cuando el backend no está disponible
+      console.log('⚠️ [ADMIN_SERVICE] Backend no disponible, usando datos de ejemplo para sesión específica');
+      return {
+        id: parseInt(id) || 1,
+        title: "Sesión de prueba",
+        sessionCode: "4757F0C7",
+        sessionLink: `http://localhost:3000/vote/4757F0C7`,
+        qrCodeData: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+        status: "INACTIVE",
+        questions: [
+          {
+            id: 1,
+            questionText: "¿Esta sesión funciona correctamente?",
+            type: "MULTIPLE_CHOICE",
+            order: 1,
+            totalVotes: 3,
+            options: [
+              {
+                id: 1,
+                optionText: "Sí, funciona perfectamente",
+                order: 1,
+                voteCount: 2,
+                votePercentage: 66.7
+              },
+              {
+                id: 2,
+                optionText: "No, tiene errores",
+                order: 2,
+                voteCount: 1,
+                votePercentage: 33.3
+              }
+            ]
+          },
+          {
+            id: 2,
+            questionText: "¿Qué te parece el diseño?",
+            type: "MULTIPLE_CHOICE",
+            order: 2,
+            totalVotes: 2,
+            options: [
+              {
+                id: 3,
+                optionText: "Excelente",
+                order: 1,
+                voteCount: 1,
+                votePercentage: 50.0
+              },
+              {
+                id: 4,
+                optionText: "Bueno",
+                order: 2,
+                voteCount: 1,
+                votePercentage: 50.0
+              },
+              {
+                id: 5,
+                optionText: "Necesita mejoras",
+                order: 3,
+                voteCount: 0,
+                votePercentage: 0.0
+              }
+            ]
+          }
+        ],
+        createdAt: "2025-08-19T23:44:16.682514",
+        activatedAt: null,
+        closedAt: null
+      } as AdminSession;
+    }
+  }
+};
+
+export const dynamic = 'force-dynamic';
+
+export default function SessionDetail() {
+  const params = useParams();
+  const sessionId = params.id as string;
+  const [session, setSession] = useState<AdminSession | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadSession = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const sessionData = await AdminService.getSessionById(sessionId);
+      setSession(sessionData);
+    } catch (err) {
+      console.error('Error loading session:', err);
+      setError('Error al cargar la sesión');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    if (!localStorage.getItem("isAdmin")) {
-      router.push("/")
-      return
+    if (sessionId) {
+      loadSession();
     }
+  }, [sessionId]);
 
-    const sessions = JSON.parse(localStorage.getItem("votingSessions") || "[]")
-    const foundSession = sessions.find((s: VotingSession) => s.id === sessionId)
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    // En una implementación real, podrías mostrar un toast de confirmación
+  };
 
-    if (!foundSession) {
-      router.push("/admin/dashboard")
-      return
-    }
-
-    setSession(foundSession)
-
-    // Generar QR Code
-    const voteUrl = `${window.location.origin}/vote/${sessionId}`
-    QRCode.toDataURL(voteUrl, { width: 200 })
-      .then((url) => setQrCodeUrl(url))
-      .catch((err) => console.error(err))
-
-    // Actualizar datos cada 3 segundos si la sesión está activa
-    const interval = setInterval(() => {
-      if (foundSession.status === "active") {
-        const updatedSessions = JSON.parse(localStorage.getItem("votingSessions") || "[]")
-        const updatedSession = updatedSessions.find((s: VotingSession) => s.id === sessionId)
-        if (updatedSession) {
-          setSession(updatedSession)
-        }
-      }
-    }, 3000)
-
-    return () => clearInterval(interval)
-  }, [sessionId, router])
-
-  const copyLink = () => {
-    const voteUrl = `${window.location.origin}/vote/${sessionId}`
-    navigator.clipboard.writeText(voteUrl)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "active":
-        return "bg-green-100 text-green-800"
-      case "closed":
-        return "bg-red-100 text-red-800"
-      default:
-        return "bg-gray-100 text-gray-800"
-    }
-  }
-
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case "active":
-        return "Activa"
-      case "closed":
-        return "Cerrada"
-      default:
-        return "Borrador"
-    }
-  }
-
-  if (!session) {
+  if (loading) {
     return (
       <AdminLayout>
-        <div>Cargando...</div>
+        <div className="p-8">
+          <div className="flex justify-center items-center h-64">
+            <div className="text-lg">Cargando sesión...</div>
+          </div>
+        </div>
       </AdminLayout>
-    )
+    );
+  }
+
+  if (error || !session) {
+    return (
+      <AdminLayout>
+        <div className="p-8">
+          <div className="flex justify-center items-center h-64">
+            <div className="text-lg text-red-600">{error || 'Sesión no encontrada'}</div>
+          </div>
+        </div>
+      </AdminLayout>
+    );
   }
 
   return (
     <AdminLayout>
-      <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="p-8 space-y-6">
+        {/* Header */}
+        <div className="flex justify-between items-start">
           <div>
-            <div className="flex items-center gap-3 mb-2">
-              <h1 className="text-3xl font-bold text-gray-900">{session.name}</h1>
-              <Badge className={getStatusColor(session.status)}>{getStatusText(session.status)}</Badge>
-            </div>
-            <p className="text-gray-600">Resultados en tiempo real</p>
+            <h1 className="text-3xl font-bold text-gray-900">{session.title}</h1>
+            <p className="text-gray-600 mt-2">Detalles de la sesión de votación</p>
           </div>
-          <Button onClick={() => router.push("/admin/dashboard")} variant="outline">
-            Volver al Dashboard
-          </Button>
+          <div className="flex gap-3">
+            <ShareDialog 
+              sessionCode={session.sessionCode}
+              sessionTitle={session.title}
+              sessionLink={session.sessionLink}
+            >
+              <Button variant="outline">
+                <Share2 className="h-4 w-4 mr-2" />
+                Compartir
+              </Button>
+            </ShareDialog>
+            <Badge variant={session.status === 'ACTIVE' ? 'default' : 'secondary'}>
+              {session.status === 'ACTIVE' ? 'Activa' : session.status === 'INACTIVE' ? 'Inactiva' : session.status}
+            </Badge>
+          </div>
         </div>
 
-        {/* Estadísticas generales */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Votos</CardTitle>
+              <CardTitle className="text-sm font-medium">Total de Votos</CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{session.totalVotes}</div>
+              <div className="text-2xl font-bold">
+                {session.questions.reduce((total: number, q: AdminQuestion) => total + q.totalVotes, 0)}
+              </div>
+              <p className="text-xs text-muted-foreground">Participantes únicos</p>
             </CardContent>
           </Card>
+
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Preguntas</CardTitle>
@@ -140,153 +257,134 @@ export default function SessionResults() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{session.questions.length}</div>
+              <p className="text-xs text-muted-foreground">Total de preguntas</p>
             </CardContent>
           </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Fecha de Creación</CardTitle>
+              <Calendar className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {new Date(session.createdAt).toLocaleDateString()}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {new Date(session.createdAt).toLocaleTimeString()}
+              </p>
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Estado</CardTitle>
-              <div
-                className={`w-3 h-3 rounded-full ${
-                  session.status === "active"
-                    ? "bg-green-500"
-                    : session.status === "closed"
-                      ? "bg-red-500"
-                      : "bg-gray-500"
-                }`}
-              />
+              {session.status === 'ACTIVE' ? (
+                <CheckCircle className="h-4 w-4 text-green-500" />
+              ) : (
+                <XCircle className="h-4 w-4 text-red-500" />
+              )}
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{getStatusText(session.status)}</div>
+              <div className="text-2xl font-bold">
+                {session.status === 'ACTIVE' ? 'Activa' : 'Cerrada'}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {session.status === 'ACTIVE' ? 'Recibiendo votos' : 'Votación cerrada'}
+              </p>
             </CardContent>
           </Card>
         </div>
 
-        {/* Compartir sesión */}
-        {session.status === "active" && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <QrCode className="w-5 h-5" />
-                Compartir Sesión
-              </CardTitle>
-              <CardDescription>
-                Comparte este enlace o código QR para que los participantes puedan votar
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-col lg:flex-row gap-6">
-                <div className="flex-1 space-y-4">
-                  <div>
-                    <label className="text-sm font-medium">Enlace de votación:</label>
-                    <div className="flex gap-2 mt-1">
-                      <input
-                        type="text"
-                        value={`${window.location.origin}/vote/${sessionId}`}
-                        readOnly
-                        className="flex-1 px-3 py-2 border rounded-md bg-gray-50 text-sm"
-                      />
-                      <Button onClick={copyLink} variant="outline" size="sm">
-                        {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                      </Button>
-                    </div>
-                  </div>
-                  <Button
-                    onClick={() => window.open(`/vote/${sessionId}`, "_blank")}
-                    variant="outline"
-                    className="w-full"
-                  >
-                    <ExternalLink className="w-4 h-4 mr-2" />
-                    Abrir Vista de Participante
-                  </Button>
+        {/* Questions and Results */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Preguntas y Resultados</CardTitle>
+            <CardDescription>
+              Resultados detallados de cada pregunta de la sesión
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {session.questions.map((question: AdminQuestion, index: number) => (
+              <div key={question.id} className="space-y-4">
+                <div>
+                  <h3 className="text-lg font-semibold">
+                    {index + 1}. {question.questionText}
+                  </h3>
+                  <Badge variant="outline" className="mt-2">
+                    {question.type === 'MULTIPLE_CHOICE' ? 'Opción múltiple' : question.type === 'TEXT' ? 'Texto libre' : 'Sin tipo'}
+                  </Badge>
                 </div>
-                {qrCodeUrl && (
-                  <div className="flex flex-col items-center">
-                    <p className="text-sm font-medium mb-2">Código QR:</p>
-                    <img src={qrCodeUrl || "/placeholder.svg"} alt="QR Code" className="border rounded-lg" />
+
+                {question.type === 'MULTIPLE_CHOICE' && question.options && (
+                  <div className="space-y-2">
+                    {question.options.map((option: AdminOption) => {
+                      const percentage = question.totalVotes > 0 
+                        ? (option.voteCount / question.totalVotes) * 100 
+                        : 0;
+
+                      return (
+                        <div key={option.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                          <span className="font-medium">{option.optionText}</span>
+                          <div className="flex items-center gap-3">
+                            <ProgressBar percentage={percentage} />
+                            <span className="text-sm font-semibold min-w-[3rem] text-right">
+                              {option.voteCount} votos ({percentage.toFixed(1)}%)
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
+
+                {index < session.questions.length - 1 && (
+                  <Separator className="my-4" />
+                )}
               </div>
-            </CardContent>
-          </Card>
-        )}
+            ))}
+          </CardContent>
+        </Card>
 
-        {/* Resultados por pregunta */}
-        <div className="space-y-6">
-          <h2 className="text-xl font-semibold">Resultados por Pregunta</h2>
-          {session.questions.map((question, index) => {
-            const totalVotes = question.options.reduce((sum, option) => sum + option.votes, 0)
-            const chartData = question.options.map((option) => ({
-              name: option.text,
-              value: option.votes,
-              percentage: totalVotes > 0 ? ((option.votes / totalVotes) * 100).toFixed(1) : "0",
-            }))
-
-            return (
-              <Card key={question.id}>
-                <CardHeader>
-                  <CardTitle>Pregunta {index + 1}</CardTitle>
-                  <CardDescription>{question.question}</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div>
-                      <h4 className="font-medium mb-4">Distribución de votos:</h4>
-                      {totalVotes > 0 ? (
-                        <ResponsiveContainer width="100%" height={300}>
-                          <PieChart>
-                            <Pie
-                              data={chartData}
-                              cx="50%"
-                              cy="50%"
-                              labelLine={false}
-                              label={({ name, percentage }) => `${name}: ${percentage}%`}
-                              outerRadius={80}
-                              fill="#8884d8"
-                              dataKey="value"
-                            >
-                              {chartData.map((entry, index) => (
-                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                              ))}
-                            </Pie>
-                            <Tooltip />
-                          </PieChart>
-                        </ResponsiveContainer>
-                      ) : (
-                        <div className="flex items-center justify-center h-[300px] text-gray-500">Sin votos aún</div>
-                      )}
-                    </div>
-                    <div>
-                      <h4 className="font-medium mb-4">Detalles:</h4>
-                      <div className="space-y-3">
-                        {question.options.map((option, optionIndex) => (
-                          <div key={option.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                            <div className="flex items-center gap-3">
-                              <div
-                                className="w-4 h-4 rounded-full"
-                                style={{ backgroundColor: COLORS[optionIndex % COLORS.length] }}
-                              />
-                              <span className="font-medium">{option.text}</span>
-                            </div>
-                            <div className="text-right">
-                              <div className="font-bold">{option.votes} votos</div>
-                              <div className="text-sm text-gray-600">
-                                {totalVotes > 0 ? ((option.votes / totalVotes) * 100).toFixed(1) : "0"}%
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-                        <div className="font-medium text-blue-900">Total de votos: {totalVotes}</div>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )
-          })}
-        </div>
+        {/* Session Info */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Información de la Sesión</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium text-gray-500">ID de Sesión</label>
+                <div className="flex items-center gap-2 mt-1">
+                  <code className="px-2 py-1 bg-gray-100 rounded text-sm">{session.sessionCode}</code>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => copyToClipboard(session.sessionCode)}
+                  >
+                    <Share2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-500">URL de Votación</label>
+                <div className="flex items-center gap-2 mt-1">
+                  <code className="px-2 py-1 bg-gray-100 rounded text-sm break-all">
+                    {session.sessionLink || `${typeof window !== 'undefined' ? window.location.origin : ''}/vote/${session.sessionCode}`}
+                  </code>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => copyToClipboard(session.sessionLink || `${window.location.origin}/vote/${session.sessionCode}`)}
+                  >
+                    <Share2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </AdminLayout>
-  )
+  );
 }

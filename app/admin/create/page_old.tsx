@@ -7,39 +7,45 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { useRouter } from "next/navigation"
-import { Plus, Trash2, Save } from "lucide-react"
+import { Plus, Trash2, Save, AlertCircle } from "lucide-react"
 import { AdminLayout } from "@/components/AdminLayout"
-import { AdminService } from "@/lib/AdminService"
+import { AdminService } from "@/lib/admin-service"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { CreateSessionRequest, CreateQuestionRequest } from "@/lib/api"
 
-interface Question {
+interface QuestionForm {
   id: string
-  question: string
-  options: Array<{ id: string; text: string; votes: number }>
+  questionText: string
+  type: 'MULTIPLE_CHOICE' | 'TEXT'
+  options: Array<{ id: string; optionText: string }>
 }
 
 export default function CreateSession() {
   const [sessionTitle, setSessionTitle] = useState("")
   const [sessionDescription, setSessionDescription] = useState("")
-  const [questions, setQuestions] = useState<Question[]>([
+  const [questions, setQuestions] = useState<QuestionForm[]>([
     {
       id: "1",
-      question: "",
+      questionText: "",
+      type: 'MULTIPLE_CHOICE',
       options: [
-        { id: "1", text: "", votes: 0 },
-        { id: "2", text: "", votes: 0 },
+        { id: "1", optionText: "" },
+        { id: "2", optionText: "" },
       ],
     },
   ])
-  const [isLoading, setIsLoading] = useState(false)
+  const [isCreating, setIsCreating] = useState(false)
+  const [error, setError] = useState("")
   const router = useRouter()
 
   const addQuestion = () => {
-    const newQuestion: Question = {
+    const newQuestion: QuestionForm = {
       id: Date.now().toString(),
-      question: "",
+      questionText: "",
+      type: 'MULTIPLE_CHOICE',
       options: [
-        { id: Date.now().toString() + "1", text: "", votes: 0 },
-        { id: Date.now().toString() + "2", text: "", votes: 0 },
+        { id: Date.now().toString() + "1", optionText: "" },
+        { id: Date.now().toString() + "2", optionText: "" },
       ],
     }
     setQuestions([...questions, newQuestion])
@@ -96,42 +102,35 @@ export default function CreateSession() {
     )
   }
 
-  const saveSession = async () => {
-    if (!sessionTitle.trim()) {
-      alert("Por favor ingresa un título para la sesión")
+  const saveSession = () => {
+    if (!sessionName.trim()) {
       return
     }
 
     const hasEmptyQuestions = questions.some((q) => !q.question.trim())
     if (hasEmptyQuestions) {
-      alert("Por favor completa todas las preguntas")
       return
     }
 
     const hasEmptyOptions = questions.some((q) => q.options.some((o) => !o.text.trim()))
     if (hasEmptyOptions) {
-      alert("Por favor completa todas las opciones")
       return
     }
 
-    try {
-      setIsLoading(true)
-      
-      const sessionData = {
-        title: sessionTitle,
-        description: sessionDescription || "Sesión de votación"
-      }
-
-      await AdminService.createSession(sessionData)
-      
-      alert("Sesión creada exitosamente")
-      router.push("/admin/dashboard")
-    } catch (error) {
-      console.error("Error creating session:", error)
-      alert("Error al crear la sesión. Por favor intenta nuevamente.")
-    } finally {
-      setIsLoading(false)
+    const newSession = {
+      id: Date.now().toString(),
+      name: sessionName,
+      status: "draft" as const,
+      questions,
+      createdAt: new Date().toISOString(),
+      totalVotes: 0,
     }
+
+    const existingSessions = JSON.parse(localStorage.getItem("votingSessions") || "[]")
+    const updatedSessions = [...existingSessions, newSession]
+    localStorage.setItem("votingSessions", JSON.stringify(updatedSessions))
+
+    router.push("/admin/dashboard")
   }
 
   return (
@@ -150,21 +149,12 @@ export default function CreateSession() {
           <CardContent>
             <div className="space-y-4">
               <div>
-                <Label htmlFor="sessionTitle">Título de la Sesión</Label>
+                <Label htmlFor="sessionName">Nombre de la Sesión</Label>
                 <Input
-                  id="sessionTitle"
+                  id="sessionName"
                   placeholder="Ej: Votación Conferencia Tech 2024"
-                  value={sessionTitle}
-                  onChange={(e) => setSessionTitle(e.target.value)}
-                />
-              </div>
-              <div>
-                <Label htmlFor="sessionDescription">Descripción (opcional)</Label>
-                <Textarea
-                  id="sessionDescription"
-                  placeholder="Describe el propósito de esta sesión de votación..."
-                  value={sessionDescription}
-                  onChange={(e) => setSessionDescription(e.target.value)}
+                  value={sessionName}
+                  onChange={(e) => setSessionName(e.target.value)}
                 />
               </div>
             </div>
@@ -233,20 +223,11 @@ export default function CreateSession() {
         </div>
 
         <div className="flex gap-4 pt-6">
-          <Button 
-            onClick={saveSession} 
-            className="flex-1 sm:flex-none"
-            disabled={isLoading}
-          >
+          <Button onClick={saveSession} className="flex-1 sm:flex-none">
             <Save className="w-4 h-4 mr-2" />
-            {isLoading ? 'Guardando...' : 'Guardar Sesión'}
+            Guardar Sesión
           </Button>
-          <Button 
-            variant="outline" 
-            onClick={() => router.push("/admin/dashboard")} 
-            className="flex-1 sm:flex-none"
-            disabled={isLoading}
-          >
+          <Button variant="outline" onClick={() => router.push("/admin/dashboard")} className="flex-1 sm:flex-none">
             Cancelar
           </Button>
         </div>

@@ -5,84 +5,100 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { useRouter } from "next/navigation"
-import { Plus, BarChart3, Users, ExternalLink, Play, Square, Trash2 } from "lucide-react"
+import { Plus, BarChart3, Users, ExternalLink, Play, Square, Trash2, Share2 } from "lucide-react"
 import { AdminLayout } from "@/components/AdminLayout"
+import { AuthService } from "@/lib/auth-service"
+import { AdminService, AdminSession } from "@/lib/AdminService"
+import { ShareDialog } from "@/components/ShareDialog"
 
-interface VotingSession {
-  id: string
-  name: string
-  status: "draft" | "active" | "closed"
-  questions: Array<{
-    id: string
-    question: string
-    options: Array<{ id: string; text: string; votes: number }>
-  }>
-  createdAt: string
-  totalVotes: number
-}
+// Actualizar la interfaz para coincidir con la respuesta del backend
+interface VotingSession extends AdminSession {}
 
 export default function AdminDashboard() {
-  const [sessions, setSessions] = useState<VotingSession[]>([])
+  const [sessions, setSessions] = useState<AdminSession[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const router = useRouter()
 
+  const loadSessions = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const data = await AdminService.getAllSessions()
+      setSessions(data)
+    } catch (err) {
+      console.error('Error loading sessions:', err)
+      setError('Error al cargar las sesiones')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   useEffect(() => {
-    // Verificar autenticación
-    if (!localStorage.getItem("isAdmin")) {
-      router.push("/")
-      return
-    }
+    loadSessions()
+  }, [])
 
-    // Cargar sesiones del localStorage
-    const savedSessions = localStorage.getItem("votingSessions")
-    if (savedSessions) {
-      setSessions(JSON.parse(savedSessions))
-    }
-  }, [router])
+  const toggleSessionStatus = async (sessionId: number) => {
+    try {
+      const session = sessions.find(s => s.id === sessionId)
+      if (!session) return
 
-  const toggleSessionStatus = (sessionId: string) => {
-    setSessions((prev) => {
-      const updated = prev.map((session) => {
-        if (session.id === sessionId) {
-          const newStatus = session.status === "active" ? "closed" : "active"
-          return { ...session, status: newStatus }
-        }
-        return session
-      })
-      localStorage.setItem("votingSessions", JSON.stringify(updated))
-      return updated
-    })
+      if (session.status === 'ACTIVE') {
+        await AdminService.closeSession(sessionId)
+      } else {
+        await AdminService.activateSession(sessionId)
+      }
+      
+      // Recargar las sesiones después de la actualización
+      await loadSessions()
+    } catch (err) {
+      console.error('Error updating session status:', err)
+      alert('Error al actualizar el estado de la sesión')
+    }
   }
 
-  const deleteSession = (sessionId: string) => {
+  const deleteSession = async (sessionId: number) => {
     if (confirm("¿Estás seguro de que quieres eliminar esta sesión?")) {
-      setSessions((prev) => {
-        const updated = prev.filter((session) => session.id !== sessionId)
-        localStorage.setItem("votingSessions", JSON.stringify(updated))
-        return updated
-      })
+      try {
+        // Por ahora no hay endpoint de delete, mostrar mensaje
+        alert('Funcionalidad de eliminar sesión no implementada en el backend')
+        // await AdminService.deleteSession(sessionId)
+        // await loadSessions()
+      } catch (err) {
+        console.error('Error deleting session:', err)
+        alert('Error al eliminar la sesión')
+      }
     }
   }
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: AdminSession['status']) => {
     switch (status) {
-      case "active":
+      case "ACTIVE":
         return "bg-green-100 text-green-800"
-      case "closed":
+      case "CLOSED":
         return "bg-red-100 text-red-800"
+      case "INACTIVE":
+        return "bg-yellow-100 text-yellow-800"
       default:
         return "bg-gray-100 text-gray-800"
     }
   }
 
-  const getStatusText = (status: string) => {
+  const getStatusText = (status: AdminSession['status']) => {
     switch (status) {
-      case "active":
+      case "ACTIVE":
         return "Activa"
-      case "closed":
+      case "CLOSED":
         return "Cerrada"
+      case "INACTIVE":
+        return "Inactiva"
       default:
         return "Borrador"
     }
+  }
+
+  const getTotalVotes = (session: AdminSession) => {
+    return session.questions.reduce((total, question) => total + question.totalVotes, 0)
   }
 
   return (
@@ -99,111 +115,146 @@ export default function AdminDashboard() {
           </Button>
         </div>
 
-        {/* Estadísticas */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Sesiones</CardTitle>
-              <BarChart3 className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{sessions.length}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Sesiones Activas</CardTitle>
-              <Play className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">
-                {sessions.filter((s) => s.status === "active").length}
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Votos</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {sessions.reduce((total, session) => total + session.totalVotes, 0)}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        {/* Loading State */}
+        {loading && (
+          <div className="flex justify-center items-center py-12">
+            <div className="text-lg">Cargando sesiones...</div>
+          </div>
+        )}
 
-        {/* Lista de sesiones */}
-        <div className="space-y-4">
-          <h2 className="text-xl font-semibold">Mis Sesiones</h2>
-          {sessions.length === 0 ? (
-            <Card>
-              <CardContent className="flex flex-col items-center justify-center py-12">
-                <BarChart3 className="w-12 h-12 text-gray-400 mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No hay sesiones</h3>
-                <p className="text-gray-600 text-center mb-4">Crea tu primera sesión de votación para comenzar</p>
-                <Button onClick={() => router.push("/admin/create")}>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Crear Primera Sesión
-                </Button>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid gap-4">
-              {sessions.map((session) => (
-                <Card key={session.id}>
-                  <CardHeader>
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <CardTitle className="text-lg">{session.name}</CardTitle>
-                          <Badge className={getStatusColor(session.status)}>{getStatusText(session.status)}</Badge>
-                        </div>
-                        <CardDescription>
-                          {session.questions.length} pregunta{session.questions.length !== 1 ? "s" : ""} •{" "}
-                          {session.totalVotes} voto{session.totalVotes !== 1 ? "s" : ""}
-                        </CardDescription>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        <Button variant="outline" size="sm" onClick={() => router.push(`/admin/session/${session.id}`)}>
-                          <BarChart3 className="w-4 h-4 mr-2" />
-                          Ver Resultados
-                        </Button>
-                        {session.status === "active" && (
-                          <Button variant="outline" size="sm" onClick={() => router.push(`/vote/${session.id}`)}>
-                            <ExternalLink className="w-4 h-4 mr-2" />
-                            Vista Participante
-                          </Button>
-                        )}
-                        <Button
-                          variant={session.status === "active" ? "destructive" : "default"}
-                          size="sm"
-                          onClick={() => toggleSessionStatus(session.id)}
-                        >
-                          {session.status === "active" ? (
-                            <>
-                              <Square className="w-4 h-4 mr-2" />
-                              Cerrar
-                            </>
-                          ) : (
-                            <>
-                              <Play className="w-4 h-4 mr-2" />
-                              Activar
-                            </>
-                          )}
-                        </Button>
-                        <Button variant="outline" size="sm" onClick={() => deleteSession(session.id)}>
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </CardHeader>
-                </Card>
-              ))}
+        {/* Error State */}
+        {error && (
+          <div className="flex justify-center items-center py-12">
+            <div className="text-lg text-red-600">{error}</div>
+          </div>
+        )}
+
+        {/* Content */}
+        {!loading && !error && (
+          <>
+            {/* Estadísticas */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Total Sesiones</CardTitle>
+                  <BarChart3 className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{sessions.length}</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Sesiones Activas</CardTitle>
+                  <Play className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-green-600">
+                    {sessions.filter((s) => s.status === "ACTIVE").length}
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Total Votos</CardTitle>
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {sessions.reduce((total, session) => total + getTotalVotes(session), 0)}
+                  </div>
+                </CardContent>
+              </Card>
             </div>
-          )}
-        </div>
+
+            {/* Lista de sesiones */}
+            <div className="space-y-4">
+              <h2 className="text-xl font-semibold">Mis Sesiones</h2>
+              {sessions.length === 0 ? (
+                <Card>
+                  <CardContent className="flex flex-col items-center justify-center py-12">
+                    <BarChart3 className="w-12 h-12 text-gray-400 mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">No hay sesiones</h3>
+                    <p className="text-gray-600 text-center mb-4">Crea tu primera sesión de votación para comenzar</p>
+                    <Button onClick={() => router.push("/admin/create")}>
+                      <Plus className="w-4 h-4 mr-2" />
+                      Crear Primera Sesión
+                    </Button>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="grid gap-4">
+                  {sessions.map((session) => {
+                    const totalVotes = getTotalVotes(session)
+                    return (
+                      <Card key={session.id}>
+                        <CardHeader>
+                          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-2">
+                                <CardTitle className="text-lg">{session.title}</CardTitle>
+                                <Badge className={getStatusColor(session.status)}>{getStatusText(session.status)}</Badge>
+                              </div>
+                              <CardDescription>
+                                {session.questions.length} pregunta{session.questions.length !== 1 ? "s" : ""} •{" "}
+                                {totalVotes} voto{totalVotes !== 1 ? "s" : ""}
+                              </CardDescription>
+                              <div className="text-xs text-gray-500 mt-1">
+                                Código: {session.sessionCode}
+                              </div>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              <Button variant="outline" size="sm" onClick={() => router.push(`/admin/session/${session.id}`)}>
+                                <BarChart3 className="w-4 h-4 mr-2" />
+                                Ver Resultados
+                              </Button>
+                              {session.status === "ACTIVE" && (
+                                <Button variant="outline" size="sm" onClick={() => router.push(`/vote/${session.sessionCode}`)}>
+                                  <ExternalLink className="w-4 h-4 mr-2" />
+                                  Vista Participante
+                                </Button>
+                              )}
+                              <ShareDialog 
+                                sessionCode={session.sessionCode}
+                                sessionTitle={session.title}
+                                sessionLink={session.sessionLink}
+                              >
+                                <Button variant="outline" size="sm">
+                                  <Share2 className="w-4 h-4 mr-2" />
+                                  Compartir
+                                </Button>
+                              </ShareDialog>
+                              <Button
+                                variant={session.status === "ACTIVE" ? "destructive" : "default"}
+                                size="sm"
+                                onClick={() => toggleSessionStatus(session.id)}
+                              >
+                                {session.status === "ACTIVE" ? (
+                                  <>
+                                    <Square className="w-4 h-4 mr-2" />
+                                    Cerrar
+                                  </>
+                                ) : (
+                                  <>
+                                    <Play className="w-4 h-4 mr-2" />
+                                    Activar
+                                  </>
+                                )}
+                              </Button>
+                              <Button variant="outline" size="sm" onClick={() => deleteSession(session.id)}>
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        </CardHeader>
+                      </Card>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          </>
+        )}
       </div>
     </AdminLayout>
   )
