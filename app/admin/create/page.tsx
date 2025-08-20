@@ -6,14 +6,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useRouter } from "next/navigation"
 import { Plus, Trash2, Save } from "lucide-react"
 import { AdminLayout } from "@/components/AdminLayout"
 import { AdminService } from "@/lib/AdminService"
+import { QuestionService, CreateQuestionRequest } from "@/lib/QuestionService"
 
 interface Question {
   id: string
   question: string
+  type: 'MULTIPLE_CHOICE' | 'TEXT'
   options: Array<{ id: string; text: string; votes: number }>
 }
 
@@ -24,6 +27,7 @@ export default function CreateSession() {
     {
       id: "1",
       question: "",
+      type: "MULTIPLE_CHOICE",
       options: [
         { id: "1", text: "", votes: 0 },
         { id: "2", text: "", votes: 0 },
@@ -37,6 +41,7 @@ export default function CreateSession() {
     const newQuestion: Question = {
       id: Date.now().toString(),
       question: "",
+      type: "MULTIPLE_CHOICE",
       options: [
         { id: Date.now().toString() + "1", text: "", votes: 0 },
         { id: Date.now().toString() + "2", text: "", votes: 0 },
@@ -53,6 +58,20 @@ export default function CreateSession() {
 
   const updateQuestion = (questionId: string, newQuestion: string) => {
     setQuestions(questions.map((q) => (q.id === questionId ? { ...q, question: newQuestion } : q)))
+  }
+
+  const updateQuestionType = (questionId: string, newType: 'MULTIPLE_CHOICE' | 'TEXT') => {
+    setQuestions(questions.map((q) => 
+      q.id === questionId ? { 
+        ...q, 
+        type: newType,
+        // Si cambia a TEXT, limpiamos las opciones
+        options: newType === 'TEXT' ? [] : q.options.length === 0 ? [
+          { id: Date.now().toString() + "1", text: "", votes: 0 },
+          { id: Date.now().toString() + "2", text: "", votes: 0 },
+        ] : q.options
+      } : q
+    ))
   }
 
   const addOption = (questionId: string) => {
@@ -108,27 +127,61 @@ export default function CreateSession() {
       return
     }
 
-    const hasEmptyOptions = questions.some((q) => q.options.some((o) => !o.text.trim()))
+    // Validar opciones solo para preguntas de opción múltiple
+    const multipleChoiceQuestions = questions.filter(q => q.type === 'MULTIPLE_CHOICE')
+    const hasEmptyOptions = multipleChoiceQuestions.some((q) => 
+      q.options.length < 2 || q.options.some((o) => !o.text.trim())
+    )
     if (hasEmptyOptions) {
-      alert("Por favor completa todas las opciones")
+      alert("Por favor completa al menos 2 opciones para las preguntas de opción múltiple")
       return
     }
 
     try {
       setIsLoading(true)
       
+      // Paso 1: Crear la sesión
+      console.log('🎯 [CREATE_SESSION] Creando sesión...')
       const sessionData = {
         title: sessionTitle,
         description: sessionDescription || "Sesión de votación"
       }
 
-      await AdminService.createSession(sessionData)
+      const createdSession = await AdminService.createSession(sessionData)
+      console.log('✅ [CREATE_SESSION] Sesión creada:', createdSession)
+
+      // Paso 2: Crear todas las preguntas
+      console.log('📝 [CREATE_SESSION] Creando preguntas...')
+      const questionPromises = questions.map(async (question, index) => {
+        const questionRequest: CreateQuestionRequest = {
+          questionText: question.question,
+          type: question.type,
+          order: index + 1,
+          // Solo incluir opciones si es de opción múltiple
+          options: question.type === 'MULTIPLE_CHOICE' 
+            ? question.options.map(o => o.text).filter(text => text.trim()) 
+            : undefined
+        }
+
+        console.log(`🔍 [CREATE_SESSION] Pregunta ${index + 1}:`, {
+          text: questionRequest.questionText,
+          type: questionRequest.type,
+          hasOptions: questionRequest.options?.length || 0,
+          options: questionRequest.options
+        })
+
+        return QuestionService.createQuestion(createdSession.id, questionRequest)
+      })
+
+      await Promise.all(questionPromises)
+      console.log('✅ [CREATE_SESSION] Todas las preguntas creadas exitosamente')
       
-      alert("Sesión creada exitosamente")
+      alert("Sesión y preguntas creadas exitosamente")
       router.push("/admin/dashboard")
+      
     } catch (error) {
-      console.error("Error creating session:", error)
-      alert("Error al crear la sesión. Por favor intenta nuevamente.")
+      console.error("❌ [CREATE_SESSION] Error creating session with questions:", error)
+      alert("Error al crear la sesión y preguntas. Por favor intenta nuevamente.")
     } finally {
       setIsLoading(false)
     }
@@ -202,31 +255,58 @@ export default function CreateSession() {
                   />
                 </div>
 
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <Label>Opciones de respuesta</Label>
-                    <Button variant="outline" size="sm" onClick={() => addOption(question.id)}>
-                      <Plus className="w-4 h-4 mr-2" />
-                      Agregar Opción
-                    </Button>
-                  </div>
-
-                  {question.options.map((option, optionIndex) => (
-                    <div key={option.id} className="flex gap-2">
-                      <Input
-                        placeholder={`Opción ${optionIndex + 1}`}
-                        value={option.text}
-                        onChange={(e) => updateOption(question.id, option.id, e.target.value)}
-                        className="flex-1"
-                      />
-                      {question.options.length > 2 && (
-                        <Button variant="outline" size="sm" onClick={() => removeOption(question.id, option.id)}>
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      )}
-                    </div>
-                  ))}
+                <div>
+                  <Label>Tipo de Pregunta</Label>
+                  <Select 
+                    value={question.type} 
+                    onValueChange={(value: 'MULTIPLE_CHOICE' | 'TEXT') => updateQuestionType(question.id, value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecciona el tipo de pregunta" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="MULTIPLE_CHOICE">Opción Múltiple</SelectItem>
+                      <SelectItem value="TEXT">Respuesta Libre</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
+
+                {question.type === 'MULTIPLE_CHOICE' && (
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <Label>Opciones de respuesta</Label>
+                      <Button variant="outline" size="sm" onClick={() => addOption(question.id)}>
+                        <Plus className="w-4 h-4 mr-2" />
+                        Agregar Opción
+                      </Button>
+                    </div>
+
+                    {question.options.map((option, optionIndex) => (
+                      <div key={option.id} className="flex gap-2">
+                        <Input
+                          placeholder={`Opción ${optionIndex + 1}`}
+                          value={option.text}
+                          onChange={(e) => updateOption(question.id, option.id, e.target.value)}
+                          className="flex-1"
+                        />
+                        {question.options.length > 2 && (
+                          <Button variant="outline" size="sm" onClick={() => removeOption(question.id, option.id)}>
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {question.type === 'TEXT' && (
+                  <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <div className="flex items-center gap-2 text-blue-800 text-sm">
+                      <span>💭</span>
+                      <span>Esta pregunta permitirá respuestas de texto libre</span>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           ))}
