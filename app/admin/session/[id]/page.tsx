@@ -7,8 +7,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Users, Calendar, Clock, Share2, CheckCircle, XCircle, BarChart3, Play, Square } from 'lucide-react';
+import { Users, Calendar, Clock, Share2, CheckCircle, XCircle, BarChart3, Play, Square, Edit3 } from 'lucide-react';
 import { ShareDialog } from '@/components/ShareDialog';
+import { EditSessionDialog } from '@/components/EditSessionDialog';
 import { BASE_API_URL } from '@/url';
 
 // Local interfaces to avoid import issues
@@ -62,15 +63,31 @@ interface AdminSession {
   closedAt: string | null;
 }
 
-// Simple ProgressBar component to avoid inline styles
+// Simple ProgressBar component
 const ProgressBar = ({ percentage }: { percentage: number }) => {
-  const widthClass = `w-[${Math.min(100, Math.max(0, percentage))}%]`;
+  const safePercentage = Math.min(100, Math.max(0, percentage));
+  
+  // Convertir porcentaje a clases de Tailwind
+  const getWidthClass = (pct: number): string => {
+    if (pct >= 95) return 'w-full';
+    if (pct >= 90) return 'w-11/12';
+    if (pct >= 80) return 'w-4/5';
+    if (pct >= 75) return 'w-3/4';
+    if (pct >= 66) return 'w-2/3';
+    if (pct >= 60) return 'w-3/5';
+    if (pct >= 50) return 'w-1/2';
+    if (pct >= 40) return 'w-2/5';
+    if (pct >= 33) return 'w-1/3';
+    if (pct >= 25) return 'w-1/4';
+    if (pct >= 20) return 'w-1/5';
+    if (pct >= 10) return 'w-1/12';
+    if (pct > 0) return 'w-1';
+    return 'w-0';
+  };
+  
   return (
     <div className="w-32 bg-gray-200 rounded-full h-2 relative overflow-hidden">
-      <div 
-        className="bg-blue-600 h-2 rounded-full transition-all duration-300 absolute left-0 top-0"
-        style={{width: `${percentage}%`}}
-      />
+      <div className={`bg-blue-600 h-2 rounded-full transition-all duration-300 ${getWidthClass(safePercentage)}`} />
     </div>
   );
 };
@@ -349,6 +366,22 @@ export default function SessionDetail() {
                   Compartir
                 </Button>
               </ShareDialog>
+            )}
+
+            {/* Botón de editar - solo mostrar si la sesión NO está cerrada */}
+            {session.status !== 'CLOSED' && (
+              <EditSessionDialog
+                sessionId={sessionId}
+                sessionTitle={session.title}
+                sessionStatus={session.status}
+                questions={session.questions}
+                onSessionUpdated={loadSession}
+              >
+                <Button variant="outline">
+                  <Edit3 className="h-4 w-4 mr-2" />
+                  Editar
+                </Button>
+              </EditSessionDialog>
             )}
             
             {/* Solo mostrar botón activar/desactivar si la sesión NO está cerrada */}

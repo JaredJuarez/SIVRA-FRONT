@@ -35,6 +35,39 @@ export interface CreateSessionRequest {
   description: string;
 }
 
+export interface CreateQuestionRequest {
+  questionText: string;
+  type: 'MULTIPLE_CHOICE' | 'OPEN_TEXT';
+  order: number;
+  options?: string[];
+}
+
+export interface UpdateQuestionRequest {
+  questionText: string;
+  type: 'MULTIPLE_CHOICE' | 'OPEN_TEXT';
+  order: number;
+  options?: string[];
+}
+
+export interface QuestionDetailResponse {
+  id: number;
+  questionText: string;
+  type: 'MULTIPLE_CHOICE' | 'OPEN_TEXT';
+  order: number;
+  sessionId: number;
+  options?: AdminOption[] | null;
+  totalVotes: number;
+  textResponses?: QuestionTextResponse[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface QuestionTextResponse {
+  response: string;
+  submittedAt: string;
+  voterIdentifier: string;
+}
+
 export class AdminService {
 
   static async getSessionById(id: string): Promise<AdminSession> {
@@ -160,6 +193,139 @@ export class AdminService {
       console.error('❌ [ADMIN_SERVICE] Error closing session:', error);
       // En modo prueba, simulamos que la acción fue exitosa
       console.log('⚠️ [ADMIN_SERVICE] Backend no disponible, simulando cierre exitoso');
+    }
+  }
+
+  // ===== MÉTODOS PARA MANEJO DE PREGUNTAS =====
+
+  static async getQuestionsBySession(sessionId: string): Promise<AdminQuestion[]> {
+    try {
+      const response = await fetch(`${BASE_API_URL}/sessions/${sessionId}/questions`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.getAuthToken()}`
+        },
+        cache: 'no-store',
+      });
+
+      if (!response.ok) {
+        throw new Error(`Error ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error fetching questions:', error);
+      throw error;
+    }
+  }
+
+  static async getQuestionById(sessionId: string, questionId: string): Promise<QuestionDetailResponse> {
+    try {
+      const response = await fetch(`${BASE_API_URL}/sessions/${sessionId}/questions/${questionId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.getAuthToken()}`
+        },
+        cache: 'no-store',
+      });
+
+      if (!response.ok) {
+        throw new Error(`Error ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error fetching question:', error);
+      throw error;
+    }
+  }
+
+  static async createQuestion(sessionId: string, question: CreateQuestionRequest): Promise<AdminQuestion> {
+    try {
+      const response = await fetch(`${BASE_API_URL}/sessions/${sessionId}/questions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.getAuthToken()}`
+        },
+        body: JSON.stringify(question),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Error ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error creating question:', error);
+      throw error;
+    }
+  }
+
+  static async updateQuestion(sessionId: string, questionId: string, question: UpdateQuestionRequest): Promise<AdminQuestion> {
+    try {
+      const response = await fetch(`${BASE_API_URL}/sessions/${sessionId}/questions/${questionId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.getAuthToken()}`
+        },
+        body: JSON.stringify(question),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Error ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error updating question:', error);
+      throw error;
+    }
+  }
+
+  static async deleteQuestion(sessionId: string, questionId: string): Promise<void> {
+    try {
+      const response = await fetch(`${BASE_API_URL}/sessions/${sessionId}/questions/${questionId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.getAuthToken()}`
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Error ${response.status}: ${response.statusText}`);
+      }
+    } catch (error) {
+      console.error('Error deleting question:', error);
+      throw error;
+    }
+  }
+
+  static async reorderQuestions(sessionId: string, questionIds: number[]): Promise<void> {
+    try {
+      const response = await fetch(`${BASE_API_URL}/sessions/${sessionId}/questions/reorder`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.getAuthToken()}`
+        },
+        body: JSON.stringify(questionIds),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Error ${response.status}: ${response.statusText}`);
+      }
+    } catch (error) {
+      console.error('Error reordering questions:', error);
+      throw error;
     }
   }
 
