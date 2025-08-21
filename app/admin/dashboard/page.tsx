@@ -43,8 +43,14 @@ export default function AdminDashboard() {
       const session = sessions.find(s => s.id === sessionId)
       if (!session) return
 
+      // Prevenir modificación si la sesión está cerrada
+      if (session.status === 'CLOSED') {
+        console.log(`🚫 [ADMIN_DASHBOARD] Cannot modify closed session ${sessionId}`)
+        return
+      }
+
       if (session.status === 'ACTIVE') {
-        await AdminService.closeSession(sessionId)
+        await AdminService.activateSession(sessionId)
       } else {
         await AdminService.activateSession(sessionId)
       }
@@ -58,16 +64,23 @@ export default function AdminDashboard() {
   }
 
   const deleteSession = async (sessionId: number) => {
-    if (confirm("¿Estás seguro de que quieres eliminar esta sesión?")) {
-      try {
-        // Por ahora no hay endpoint de delete, mostrar mensaje
-        alert('Funcionalidad de eliminar sesión no implementada en el backend')
-        // await AdminService.deleteSession(sessionId)
-        // await loadSessions()
-      } catch (err) {
-        console.error('Error deleting session:', err)
-        alert('Error al eliminar la sesión')
+    try {
+      const session = sessions.find(s => s.id === sessionId)
+      if (!session) return
+
+      // Prevenir eliminación si la sesión está cerrada
+      if (session.status === 'CLOSED') {
+        console.log(`🚫 [ADMIN_DASHBOARD] Cannot delete closed session ${sessionId}`)
+        return
       }
+
+      if (confirm('¿Estás seguro de que deseas eliminar esta sesión?')) {
+        await AdminService.closeSession(sessionId)
+        await loadSessions()
+      }
+    } catch (err) {
+      console.error('Error deleting session:', err)
+      alert('Error al eliminar la sesión')
     }
   }
 
@@ -208,42 +221,48 @@ export default function AdminDashboard() {
                                 <BarChart3 className="w-4 h-4 mr-2" />
                                 Ver Resultados
                               </Button>
-                              {session.status === "ACTIVE" && (
-                                <Button variant="outline" size="sm" onClick={() => router.push(`/vote/${session.sessionCode}`)}>
-                                  <ExternalLink className="w-4 h-4 mr-2" />
-                                  Vista Participante
-                                </Button>
+                              
+                              {/* Solo mostrar estos botones si la sesión NO está cerrada */}
+                              {session.status !== "CLOSED" && (
+                                <>
+                                  {session.status === "ACTIVE" && (
+                                    <Button variant="outline" size="sm" onClick={() => router.push(`/vote/${session.sessionCode}`)}>
+                                      <ExternalLink className="w-4 h-4 mr-2" />
+                                      Vista Participante
+                                    </Button>
+                                  )}
+                                  <ShareDialog 
+                                    sessionCode={session.sessionCode}
+                                    sessionTitle={session.title}
+                                    sessionLink={session.sessionLink}
+                                  >
+                                    <Button variant="outline" size="sm">
+                                      <Share2 className="w-4 h-4 mr-2" />
+                                      Compartir
+                                    </Button>
+                                  </ShareDialog>
+                                  <Button
+                                    variant={session.status === "ACTIVE" ? "destructive" : "default"}
+                                    size="sm"
+                                    onClick={() => toggleSessionStatus(session.id)}
+                                  >
+                                    {session.status === "ACTIVE" ? (
+                                      <>
+                                        <Square className="w-4 h-4 mr-2" />
+                                        Cerrar
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Play className="w-4 h-4 mr-2" />
+                                        Activar
+                                      </>
+                                    )}
+                                  </Button>
+                                  <Button variant="outline" size="sm" onClick={() => deleteSession(session.id)}>
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
+                                </>
                               )}
-                              <ShareDialog 
-                                sessionCode={session.sessionCode}
-                                sessionTitle={session.title}
-                                sessionLink={session.sessionLink}
-                              >
-                                <Button variant="outline" size="sm">
-                                  <Share2 className="w-4 h-4 mr-2" />
-                                  Compartir
-                                </Button>
-                              </ShareDialog>
-                              <Button
-                                variant={session.status === "ACTIVE" ? "destructive" : "default"}
-                                size="sm"
-                                onClick={() => toggleSessionStatus(session.id)}
-                              >
-                                {session.status === "ACTIVE" ? (
-                                  <>
-                                    <Square className="w-4 h-4 mr-2" />
-                                    Cerrar
-                                  </>
-                                ) : (
-                                  <>
-                                    <Play className="w-4 h-4 mr-2" />
-                                    Activar
-                                  </>
-                                )}
-                              </Button>
-                              <Button variant="outline" size="sm" onClick={() => deleteSession(session.id)}>
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
                             </div>
                           </div>
                         </CardHeader>

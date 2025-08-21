@@ -14,6 +14,19 @@ import { AlertCircle, CheckCircle, Users, Clock, Vote, Send } from 'lucide-react
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { VoteService, VoteSession, VoteQuestion, VoteRequest } from '@/lib/VoteService';
 
+// Simple ProgressBar component to avoid inline styles  
+const ProgressBar = ({ percentage }: { percentage: number }) => {
+  const clampedPercentage = Math.min(100, Math.max(0, percentage));
+  return (
+    <div className="w-full bg-gray-200 rounded-full h-2 relative overflow-hidden">
+      <div 
+        className={`bg-indigo-600 h-2 rounded-full transition-all duration-300 absolute left-0 top-0`}
+        style={{width: `${clampedPercentage}%`}}
+      />
+    </div>
+  );
+};
+
 export const dynamic = 'force-dynamic';
 
 export default function VotingPage() {
@@ -30,6 +43,53 @@ export default function VotingPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [voterFingerprint, setVoterFingerprint] = useState('');
+  const [showQuestions, setShowQuestions] = useState(false);
+  const [tempUsername, setTempUsername] = useState('');
+
+  // Cargar datos del sessionStorage al inicializar
+  useEffect(() => {
+    if (typeof window !== 'undefined' && sessionCode) {
+      const storageKey = `sivra_vote_${sessionCode}`;
+      const savedData = sessionStorage.getItem(storageKey);
+      
+      if (savedData) {
+        try {
+          const parsed = JSON.parse(savedData);
+          setTempUsername(parsed.username || '');
+          setUsername(parsed.username || '');
+          setVotes(parsed.votes || {});
+          setCurrentQuestionIndex(parsed.currentQuestionIndex || 0);
+          
+          if (parsed.username) {
+            setShowQuestions(true);
+          }
+        } catch (error) {
+          console.error('Error parsing saved data:', error);
+        }
+      }
+    }
+  }, [sessionCode]);
+
+  // Guardar progreso en sessionStorage
+  const saveProgressToSession = () => {
+    if (typeof window !== 'undefined' && sessionCode) {
+      const storageKey = `sivra_vote_${sessionCode}`;
+      const dataToSave = {
+        username: username,
+        votes: votes,
+        currentQuestionIndex: currentQuestionIndex,
+        timestamp: new Date().toISOString()
+      };
+      sessionStorage.setItem(storageKey, JSON.stringify(dataToSave));
+    }
+  };
+
+  // Guardar progreso cada vez que cambie algo importante
+  useEffect(() => {
+    if (username && Object.keys(votes).length > 0) {
+      saveProgressToSession();
+    }
+  }, [votes, currentQuestionIndex, username]);
 
   const loadSession = async () => {
     try {
@@ -47,6 +107,27 @@ export default function VotingPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleStartVoting = () => {
+    if (!tempUsername.trim()) {
+      setError('Por favor ingresa tu nombre');
+      return;
+    }
+    
+    setUsername(tempUsername.trim());
+    setShowQuestions(true);
+    setError(null);
+    
+    // Guardar en sessionStorage
+    const storageKey = `sivra_vote_${sessionCode}`;
+    const dataToSave = {
+      username: tempUsername.trim(),
+      votes: {},
+      currentQuestionIndex: 0,
+      timestamp: new Date().toISOString()
+    };
+    sessionStorage.setItem(storageKey, JSON.stringify(dataToSave));
   };
 
   useEffect(() => {
@@ -72,10 +153,22 @@ export default function VotingPage() {
       setSubmitting(true);
       setError(null);
 
+      console.log('🚀 [VOTE_PAGE] Iniciando envío de votos:', {
+        sessionCode,
+        username: username.trim(),
+        voterFingerprint,
+        totalQuestions: session.questions.length,
+        answeredQuestions: Object.keys(votes).length,
+        votes
+      });
+
       // Enviar votos para cada pregunta
       for (const question of session.questions) {
         const vote = votes[question.id];
-        if (!vote) continue;
+        if (!vote) {
+          console.log(`⏭️ [VOTE_PAGE] Saltando pregunta ${question.id} - sin respuesta`);
+          continue;
+        }
 
         const voteRequest: VoteRequest = {
           username: username.trim(),
@@ -86,12 +179,30 @@ export default function VotingPage() {
           )
         };
 
+        console.log(`📝 [VOTE_PAGE] Enviando voto para pregunta ${question.id}:`, {
+          questionText: question.questionText,
+          questionType: question.type,
+          voteRequest,
+          endpoint: `/vote/${sessionCode}/questions/${question.id}`
+        });
+
         await VoteService.submitQuestionVote(sessionCode, question.id, voteRequest);
+        
+        console.log(`✅ [VOTE_PAGE] Voto enviado exitosamente para pregunta ${question.id}`);
       }
 
+      console.log('🎉 [VOTE_PAGE] Todos los votos enviados exitosamente');
+      
+      // Limpiar sessionStorage ya que la votación fue exitosa
+      if (typeof window !== 'undefined' && sessionCode) {
+        const storageKey = `sivra_vote_${sessionCode}`;
+        sessionStorage.removeItem(storageKey);
+        console.log('🧹 [VOTE_PAGE] SessionStorage limpiado tras votación exitosa');
+      }
+      
       setSubmitted(true);
     } catch (err) {
-      console.error('Error submitting vote:', err);
+      console.error('❌ [VOTE_PAGE] Error submitting vote:', err);
       setError('Error al enviar el voto. Por favor intenta nuevamente.');
     } finally {
       setSubmitting(false);
@@ -144,6 +255,81 @@ export default function VotingPage() {
               <Button onClick={() => router.push('/')} variant="outline">
                 Ir al inicio
               </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Pantalla de bienvenida y nombre temporal
+  if (!showQuestions && session) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <div className="flex justify-center mb-4">
+              <Vote className="h-16 w-16 text-indigo-600" />
+            </div>
+            <CardTitle className="text-2xl text-gray-900">Bienvenido a la encuesta</CardTitle>
+            <CardDescription className="text-base">
+              {session.title}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+              <div className="flex items-start">
+                <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5 mr-2 flex-shrink-0" />
+                <div className="text-sm text-yellow-800">
+                  <p className="font-medium mb-1">⚠️ Sesión temporal</p>
+                  <p>Tu progreso se guarda temporalmente. Si sales de la página, perderás tus respuestas.</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="temp-username" className="text-base font-medium">
+                  Ingresa tu nombre
+                </Label>
+                <Input
+                  id="temp-username"
+                  type="text"
+                  placeholder="Ej: Juan Pérez"
+                  value={tempUsername}
+                  onChange={(e) => setTempUsername(e.target.value)}
+                  className="mt-2 text-base"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleStartVoting();
+                    }
+                  }}
+                />
+              </div>
+
+              {error && (
+                <Alert>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+
+              <div className="space-y-3">
+                <Button 
+                  onClick={handleStartVoting} 
+                  className="w-full text-base py-6"
+                  disabled={!tempUsername.trim()}
+                >
+                  Comenzar encuesta
+                </Button>
+                
+                <div className="text-center">
+                  <p className="text-sm text-gray-500">
+                    {session.questions.length} pregunta{session.questions.length !== 1 ? 's' : ''} • 
+                    Código: {session.sessionCode}
+                  </p>
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -278,12 +464,7 @@ export default function VotingPage() {
                 {currentQuestionIndex + 1} de {session.questions.length}
               </span>
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-2">
-              <div 
-                className="bg-indigo-600 h-2 rounded-full transition-all duration-300"
-                style={{width: `${Math.round(((currentQuestionIndex + 1) / session.questions.length) * 100)}%`}}
-              />
-            </div>
+            <ProgressBar percentage={Math.round(((currentQuestionIndex + 1) / session.questions.length) * 100)} />
             <div className="flex justify-between mt-2">
               {session.questions.map((_, index) => (
                 <button

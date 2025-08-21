@@ -1,13 +1,15 @@
+import { BASE_API_URL } from '@/url'
+
 export interface CreateQuestionRequest {
   questionText: string;
-  type: 'MULTIPLE_CHOICE' | 'TEXT';
+  type: 'MULTIPLE_CHOICE' | 'OPEN_TEXT';
   order: number;
   options?: string[]; // Array de strings para opciones de opción múltiple
 }
 
 export interface UpdateQuestionRequest {
   questionText: string;
-  type: 'MULTIPLE_CHOICE' | 'TEXT';
+  type: 'MULTIPLE_CHOICE' | 'OPEN_TEXT';
   order: number;
   options?: string[];
 }
@@ -29,7 +31,7 @@ export interface TextResponse {
 export interface QuestionDetail {
   id: number;
   questionText: string;
-  type: 'MULTIPLE_CHOICE' | 'TEXT';
+  type: 'MULTIPLE_CHOICE' | 'OPEN_TEXT';
   order: number;
   sessionId: number;
   options?: QuestionOption[];
@@ -42,14 +44,14 @@ export interface QuestionDetail {
 export interface QuestionSummary {
   id: number;
   questionText: string;
-  type: 'MULTIPLE_CHOICE' | 'TEXT';
+  type: 'MULTIPLE_CHOICE' | 'OPEN_TEXT';
   order: number;
   options?: QuestionOption[];
   totalVotes: number;
 }
 
 export class QuestionService {
-  private static baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
+  private static baseUrl = BASE_API_URL;
 
   // Obtener todas las preguntas de una sesión
   static async getSessionQuestions(sessionId: number): Promise<QuestionSummary[]> {

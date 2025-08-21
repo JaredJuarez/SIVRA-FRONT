@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -16,7 +16,7 @@ import { QuestionService, CreateQuestionRequest } from "@/lib/QuestionService"
 interface Question {
   id: string
   question: string
-  type: 'MULTIPLE_CHOICE' | 'TEXT'
+  type: 'MULTIPLE_CHOICE' | 'OPEN_TEXT'
   options: Array<{ id: string; text: string; votes: number }>
 }
 
@@ -35,7 +35,21 @@ export default function CreateSession() {
     },
   ])
   const [isLoading, setIsLoading] = useState(false)
+  const [isSticky, setIsSticky] = useState(false)
+  const questionsHeaderRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (questionsHeaderRef.current) {
+        const rect = questionsHeaderRef.current.getBoundingClientRect()
+        setIsSticky(rect.top <= 0)
+      }
+    }
+
+    window.addEventListener('scroll', handleScroll)
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [])
 
   const addQuestion = () => {
     const newQuestion: Question = {
@@ -60,13 +74,13 @@ export default function CreateSession() {
     setQuestions(questions.map((q) => (q.id === questionId ? { ...q, question: newQuestion } : q)))
   }
 
-  const updateQuestionType = (questionId: string, newType: 'MULTIPLE_CHOICE' | 'TEXT') => {
+  const updateQuestionType = (questionId: string, newType: 'MULTIPLE_CHOICE' | 'OPEN_TEXT') => {
     setQuestions(questions.map((q) => 
       q.id === questionId ? { 
         ...q, 
         type: newType,
-        // Si cambia a TEXT, limpiamos las opciones
-        options: newType === 'TEXT' ? [] : q.options.length === 0 ? [
+        // Si cambia a OPEN_TEXT, limpiamos las opciones
+        options: newType === 'OPEN_TEXT' ? [] : q.options.length === 0 ? [
           { id: Date.now().toString() + "1", text: "", votes: 0 },
           { id: Date.now().toString() + "2", text: "", votes: 0 },
         ] : q.options
@@ -225,16 +239,36 @@ export default function CreateSession() {
         </Card>
 
         <div className="space-y-4">
-          <div className="flex justify-between items-center">
+          <div ref={questionsHeaderRef} className="flex justify-between items-center">
             <h2 className="text-xl font-semibold">Preguntas</h2>
-            <Button onClick={addQuestion} variant="outline">
+            <Button className="bg-indigo-600 text-white font-bold" onClick={addQuestion} variant="outline">
               <Plus className="w-4 h-4 mr-2" />
               Agregar Pregunta
             </Button>
           </div>
 
+          {/* Botón sticky que aparece cuando se hace scroll */}
+          {isSticky && (
+            <div className="fixed top-0 left-0 right-0 bg-white/95 backdrop-blur-sm border-b shadow-sm z-50 py-3">
+              <div className="max-w-4xl mx-auto px-4 flex justify-between items-center">
+                <span className="text-sm text-gray-600 font-medium">
+                  Preguntas ({questions.length})
+                </span>
+                <Button 
+                  className="bg-indigo-600 text-white font-bold shadow-lg" 
+                  onClick={addQuestion} 
+                  variant="outline"
+                  size="sm"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Agregar Pregunta
+                </Button>
+              </div>
+            </div>
+          )}
+
           {questions.map((question, questionIndex) => (
-            <Card key={question.id}>
+            <Card key={question.id} className={isSticky && questionIndex === 0 ? "mt-16" : ""}>
               <CardHeader>
                 <div className="flex justify-between items-start">
                   <CardTitle className="text-lg">Pregunta {questionIndex + 1}</CardTitle>
@@ -259,14 +293,14 @@ export default function CreateSession() {
                   <Label>Tipo de Pregunta</Label>
                   <Select 
                     value={question.type} 
-                    onValueChange={(value: 'MULTIPLE_CHOICE' | 'TEXT') => updateQuestionType(question.id, value)}
+                    onValueChange={(value: 'MULTIPLE_CHOICE' | 'OPEN_TEXT') => updateQuestionType(question.id, value)}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Selecciona el tipo de pregunta" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="MULTIPLE_CHOICE">Opción Múltiple</SelectItem>
-                      <SelectItem value="TEXT">Respuesta Libre</SelectItem>
+                      <SelectItem value="OPEN_TEXT">Respuesta Libre</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -299,7 +333,7 @@ export default function CreateSession() {
                   </div>
                 )}
 
-                {question.type === 'TEXT' && (
+                {question.type === 'OPEN_TEXT' && (
                   <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
                     <div className="flex items-center gap-2 text-blue-800 text-sm">
                       <span>💭</span>

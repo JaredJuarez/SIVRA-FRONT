@@ -1,7 +1,9 @@
+import { BASE_API_URL } from '@/url'
+
 // Configuración centralizada del backend
 export const config = {
   // URL base del backend - CAMBIAR AQUÍ PARA DIFERENTES ENTORNOS
-  backendUrl: 'http://localhost:8080/api',
+  backendUrl: BASE_API_URL,
   
   // Configuración de endpoints
   endpoints: {

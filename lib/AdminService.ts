@@ -1,3 +1,5 @@
+import { BASE_API_URL } from '@/url';
+
 export interface AdminSession {
   id: number;
   title: string;
@@ -14,7 +16,7 @@ export interface AdminSession {
 export interface AdminQuestion {
   id: number;
   questionText: string;
-  type: 'MULTIPLE_CHOICE' | 'TEXT' | null;
+  type: 'MULTIPLE_CHOICE' | 'OPEN_TEXT' | null;
   order: number;
   totalVotes: number;
   options?: AdminOption[];
@@ -34,11 +36,10 @@ export interface CreateSessionRequest {
 }
 
 export class AdminService {
-  private static baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
 
   static async getSessionById(id: string): Promise<AdminSession> {
     try {
-      const response = await fetch(`${this.baseUrl}/admin/sessions/${id}`, {
+      const response = await fetch(`${BASE_API_URL}/admin/sessions/${id}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -55,81 +56,13 @@ export class AdminService {
       return data;
     } catch (error) {
       console.error('Error fetching session:', error);
-      
-      // Fallback: datos de ejemplo cuando el backend no está disponible
-      console.log('⚠️ [ADMIN_SERVICE] Backend no disponible, usando datos de ejemplo para sesión específica');
-      return {
-        id: parseInt(id) || 1,
-        title: "Sesión de prueba",
-        sessionCode: "4757F0C7",
-        sessionLink: `http://localhost:3000/vote/4757F0C7`,
-        qrCodeData: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
-        status: "INACTIVE",
-        questions: [
-          {
-            id: 1,
-            questionText: "¿Esta sesión funciona correctamente?",
-            type: "MULTIPLE_CHOICE",
-            order: 1,
-            totalVotes: 3,
-            options: [
-              {
-                id: 1,
-                optionText: "Sí, funciona perfectamente",
-                order: 1,
-                voteCount: 2,
-                votePercentage: 66.7
-              },
-              {
-                id: 2,
-                optionText: "No, tiene errores",
-                order: 2,
-                voteCount: 1,
-                votePercentage: 33.3
-              }
-            ]
-          },
-          {
-            id: 2,
-            questionText: "¿Qué te parece el diseño?",
-            type: "MULTIPLE_CHOICE",
-            order: 2,
-            totalVotes: 2,
-            options: [
-              {
-                id: 3,
-                optionText: "Excelente",
-                order: 1,
-                voteCount: 1,
-                votePercentage: 50.0
-              },
-              {
-                id: 4,
-                optionText: "Bueno",
-                order: 2,
-                voteCount: 1,
-                votePercentage: 50.0
-              },
-              {
-                id: 5,
-                optionText: "Necesita mejoras",
-                order: 3,
-                voteCount: 0,
-                votePercentage: 0.0
-              }
-            ]
-          }
-        ],
-        createdAt: "2025-08-19T23:44:16.682514",
-        activatedAt: null,
-        closedAt: null
-      } as AdminSession;
+      throw error;
     }
   }
 
   static async getAllSessions(): Promise<AdminSession[]> {
     try {
-      const response = await fetch(`${this.baseUrl}/admin/sessions`, {
+      const response = await fetch(`${BASE_API_URL}/admin/sessions`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -146,53 +79,13 @@ export class AdminService {
       return data;
     } catch (error) {
       console.error('Error fetching sessions:', error);
-      
-      // Fallback: datos de ejemplo cuando el backend no está disponible
-      console.log('⚠️ [ADMIN_SERVICE] Backend no disponible, usando datos de ejemplo');
-      return [
-        {
-          id: 1,
-          title: "Encuesta de prueba",
-          sessionCode: "4757F0C7",
-          sessionLink: "http://localhost:3000/vote/4757F0C7",
-          qrCodeData: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
-          status: "INACTIVE",
-          questions: [
-            {
-              id: 1,
-              questionText: "¿Esto funciona?",
-              type: "MULTIPLE_CHOICE",
-              order: 1,
-              totalVotes: 0,
-              options: [
-                {
-                  id: 1,
-                  optionText: "Sí",
-                  order: 1,
-                  voteCount: 0,
-                  votePercentage: 0
-                },
-                {
-                  id: 2,
-                  optionText: "No",
-                  order: 2,
-                  voteCount: 0,
-                  votePercentage: 0
-                }
-              ]
-            }
-          ],
-          createdAt: "2025-08-19T23:44:16.682514",
-          activatedAt: null,
-          closedAt: null
-        }
-      ] as AdminSession[];
+      throw error;
     }
   }
 
   static async createSession(session: CreateSessionRequest): Promise<AdminSession> {
     try {
-      const response = await fetch(`${this.baseUrl}/admin/sessions`, {
+      const response = await fetch(`${BASE_API_URL}/admin/sessions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -215,7 +108,7 @@ export class AdminService {
 
   static async activateSession(id: number): Promise<void> {
     try {
-      const response = await fetch(`${this.baseUrl}/admin/sessions/${id}/activate`, {
+      const response = await fetch(`${BASE_API_URL}/admin/sessions/${id}/activate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -235,7 +128,10 @@ export class AdminService {
 
   static async closeSession(id: number): Promise<void> {
     try {
-      const response = await fetch(`${this.baseUrl}/admin/sessions/${id}/close`, {
+      console.log(`🔒 [ADMIN_SERVICE] Cerrando sesión ID: ${id}`);
+      console.log(`📡 [ADMIN_SERVICE] Endpoint: ${BASE_API_URL}/admin/sessions/${id}/close`);
+      
+      const response = await fetch(`${BASE_API_URL}/admin/sessions/${id}/close`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -243,11 +139,25 @@ export class AdminService {
         },
       });
 
+      console.log(`📡 [ADMIN_SERVICE] Respuesta del servidor:`, {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok
+      });
+
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`❌ [ADMIN_SERVICE] Error del servidor:`, {
+          status: response.status,
+          statusText: response.statusText,
+          errorBody: errorText
+        });
         throw new Error(`Error ${response.status}: ${response.statusText}`);
       }
+      
+      console.log(`✅ [ADMIN_SERVICE] Sesión ${id} cerrada exitosamente`);
     } catch (error) {
-      console.error('Error closing session:', error);
+      console.error('❌ [ADMIN_SERVICE] Error closing session:', error);
       // En modo prueba, simulamos que la acción fue exitosa
       console.log('⚠️ [ADMIN_SERVICE] Backend no disponible, simulando cierre exitoso');
     }
