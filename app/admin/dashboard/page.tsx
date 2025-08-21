@@ -249,7 +249,7 @@ export default function AdminDashboard() {
                                     {session.status === "ACTIVE" ? (
                                       <>
                                         <Square className="w-4 h-4 mr-2" />
-                                        Cerrar
+                                        Desactivar
                                       </>
                                     ) : (
                                       <>
@@ -258,9 +258,12 @@ export default function AdminDashboard() {
                                       </>
                                     )}
                                   </Button>
-                                  <Button variant="outline" size="sm" onClick={() => deleteSession(session.id)}>
-                                    <Trash2 className="w-4 h-4" />
-                                  </Button>
+                                  {/* Solo mostrar el botón de eliminar cuando la sesión está ACTIVA */}
+                                  {session.status === "ACTIVE" && (
+                                    <Button variant="outline" size="sm" onClick={() => deleteSession(session.id)}>
+                                      <Trash2 className="w-4 h-4" />
+                                    </Button>
+                                  )}
                                 </>
                               )}
                             </div>
