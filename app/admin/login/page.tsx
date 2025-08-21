@@ -348,38 +348,6 @@ export default function AuthPage() {
           </CardContent>
         </Card>
 
-        {/* Credenciales de prueba */}
-        <Card className="mt-4">
-          <CardHeader>
-            <CardTitle className="text-sm">Credenciales de Prueba</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <div className="text-sm space-y-1">
-              <div><span className="font-medium">Email:</span> admin@eventos.com</div>
-              <div><span className="font-medium">Contraseña:</span> admin123</div>
-            </div>
-            <div className="mt-3">
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={clearAuthData}
-                className="w-full text-xs"
-              >
-                🧹 Limpiar Datos de Autenticación
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Debug Info */}
-        <div className="mt-4 p-3 bg-gray-100 rounded-lg text-xs">
-          <div className="font-bold mb-1">🐛 Debug Info:</div>
-          <div>Backend URL: http://localhost:8080</div>
-          <div>Auth Token: {AuthService.getToken() ? '✅ Presente' : '❌ No presente'}</div>
-          <div>Usuario: {AuthService.getUserEmail() || 'No autenticado'}</div>
-          <div>Verificación pendiente: {showVerification ? 'Sí' : 'No'}</div>
-        </div>
-
         {/* Features */}
         <div className="mt-8 grid grid-cols-3 gap-4 text-center">
           <div className="flex flex-col items-center">
