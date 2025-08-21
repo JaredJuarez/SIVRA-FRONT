@@ -3,8 +3,10 @@
 import type React from "react"
 
 import { useRouter } from "next/navigation"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { LogOut, BarChart3, Plus, Home } from "lucide-react"
+import { AuthService } from "@/lib/auth-service"
 
 interface AdminLayoutProps {
   children: React.ReactNode
@@ -12,10 +14,73 @@ interface AdminLayoutProps {
 
 export function AdminLayout({ children }: AdminLayoutProps) {
   const router = useRouter()
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
+  const [mounted, setMounted] = useState(false)
+
+  // Manejar hidratación
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  useEffect(() => {
+    if (!mounted) return
+
+    const checkAuth = () => {
+      try {
+        const authStatus = AuthService.isAuthenticatedSync()
+        console.log('🔍 [ADMIN_LAYOUT] Verificando autenticación:', authStatus)
+        setIsAuthenticated(authStatus)
+      } catch (error) {
+        console.error('❌ [ADMIN_LAYOUT] Error verificando auth:', error)
+        setIsAuthenticated(false)
+      }
+    }
+
+    checkAuth()
+  }, [mounted])
 
   const handleLogout = () => {
-    localStorage.removeItem("isAdmin")
-    router.push("/")
+    AuthService.logout()
+    console.log('👋 [ADMIN_LAYOUT] Cerrando sesión y redirigiendo')
+    setIsAuthenticated(false)
+    router.replace("/")
+  }
+
+  const handleGoToLogin = () => {
+    router.replace("/")
+  }
+
+  // No renderizar nada hasta que esté montado
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-lg">Cargando...</div>
+      </div>
+    )
+  }
+
+  // Mostrar loading mientras se verifica autenticación
+  if (isAuthenticated === null) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-lg">Verificando autenticación...</div>
+      </div>
+    )
+  }
+
+  // Si no está autenticado, mostrar botón manual para ir al login
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="text-lg text-red-600">⚠️ Acceso denegado</div>
+          <div className="text-sm text-gray-600">No tienes permisos para acceder a esta página</div>
+          <Button onClick={handleGoToLogin}>
+            Ir al Login
+          </Button>
+        </div>
+      </div>
+    )
   }
 
   return (
